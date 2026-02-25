@@ -3,7 +3,12 @@ scalar DateTime
 
   
 type Query {
-    _empty: String
+  me: User
+  getUser(id: ID!): User
+  users: [User]
+    
+  myCustomers: [Customer]
+  getCustomer(id: ID!): Customer
 }
 
 type Mutation {
@@ -39,6 +44,13 @@ type User {
 
    createdAt: DateTime!
 
+}
+
+type Customer {
+  id: ID!
+  name: String!
+  email: String!
+  phone: String!
 }
 
 type AuthPayload {

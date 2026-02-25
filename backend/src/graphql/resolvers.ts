@@ -3,7 +3,102 @@ import bcrypt from "bcryptjs";
 import { GraphQLError } from "graphql";
 import jwt from "jsonwebtoken";
 
+interface myContext {
+  user?: {
+    id: string;
+    email: string;
+    tenantId: string;
+    role: string;
+  };
+}
+
 export const resolvers = {
+  Query: {
+    me: async (_: any, args: any, context: any) => {
+      if (!context.user) {
+        return null;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: context.user.id },
+      });
+
+      if (!user) {
+        throw new Error(
+          "The session is invalid or the user has been deleted from the database.",
+        );
+      }
+
+      return user;
+    },
+    getUser: async (_: any, { id }: { id: string }, context: myContext) => {
+      if (!context.user) {
+        return null;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: id },
+      });
+
+      if (!user) {
+        throw new Error(
+          "The session is invalid or the user has been deleted from the database.",
+        );
+      }
+      return user;
+    },
+    users: async (_: any, __: any, context: any) => {
+      if (!context.user) {
+        throw new Error("You must log in to view this list.");
+      }
+
+      if (context.user.role === "SUPER_ADMIN") {
+        return await prisma.user.findMany();
+      }
+
+      if (context.user.role === "TENANT_ADMIN") {
+        return await prisma.user.findMany({
+          where: {
+            tenantId: context.user.tenantId,
+          },
+        });
+      }
+      throw new Error("You do not have permission to view this list..");
+    },
+    myCustomers: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user) {
+        throw new Error("You must log in to view this list.");
+      }
+
+      if (context.user.role === "SUPER_ADMIN") {
+        return await prisma.customer.findMany();
+      }
+      if (context.user.role === "TENANT_ADMIN") {
+        return await prisma.customer.findMany({
+          where: {
+            tenantId: context.user.tenantId,
+          },
+        });
+      }
+      throw new Error("You do not have permission to view this list..");
+    },
+    getCustomer: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user) {
+        return null;
+      }
+
+      const customer = await prisma.customer.findFirst({
+        where: { id: id, tenantId: context.user.tenantId },
+      });
+
+      if (!customer) {
+        throw new Error(
+          "The customer could not be found, or you do not have permission to access this data.",
+        );
+      }
+      return customer;
+    },
+  },
   Mutation: {
     createTenant: async (_: any, args: any) => {
       return await prisma.tenant.create({
