@@ -1,28 +1,18 @@
-import { gql, useMutation } from "@apollo/client";
+import { useMutation } from "@apollo/client";
+import { SIGNIN_MUTATION } from "../../graphql/mutations/Auth";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const SIGNIN_MUTATION = gql`
-  mutation ($email: String!, $password: String!) {
-    signin(email: $email, password: $password) {
-      token
-      user {
-        id
-        name
-      }
-    }
-  }
-`;
+import { useAuth } from "../../hooks/useAuth";
 
 const Signin = () => {
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [signinUser, { loading, error }] = useMutation(SIGNIN_MUTATION, {
     onCompleted: (data) => {
-      const token = data.signin.token;
-      localStorage.setItem("token", token);
+      login(data.signin.token);
       navigate("/customers");
     },
   });
@@ -30,7 +20,12 @@ const Signin = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     signinUser({
-      variables: { email, password },
+      variables: {
+        credentials: {
+          email: email,
+          password: password,
+        },
+      },
     });
   };
 
@@ -94,7 +89,10 @@ const Signin = () => {
 
         <div className="mt-8 text-center text-sm text-slate-500">
           Don't have an account yet?{" "}
-          <a href="#" className="text-indigo-600 font-semibold hover:underline">
+          <a
+            href="/signup"
+            className="text-indigo-600 font-semibold hover:underline"
+          >
             Signup
           </a>
         </div>

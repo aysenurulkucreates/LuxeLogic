@@ -4,9 +4,10 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import MyCustomers from "./pages/MyCustomers";
+import MyCustomers from "./pages/Dasboard/customers/MyCustomers";
 import "../src/App.css";
-import Signin from "./pages/Signin";
+import Signin from "./pages/Auth/Signin";
+import Signup from "./pages/Auth/Signup";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to={"/signin"} />} />
         <Route path="/signin" element={<Signin />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/customers" element={<MyCustomers />} />
       </Routes>
     </Router>

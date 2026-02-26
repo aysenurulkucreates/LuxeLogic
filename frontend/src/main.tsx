@@ -8,6 +8,7 @@ import {
   createHttpLink,
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context"; // Token eklemek için bu paket lazım
+import { AuthProvider } from "./context/AuthContext";
 
 // 1. Backend bağlantı adresimiz
 const httpLink = createHttpLink({
@@ -37,7 +38,9 @@ const root = ReactDOM.createRoot(document.getElementById("root")!);
 root.render(
   <React.StrictMode>
     <ApolloProvider client={client}>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ApolloProvider>
   </React.StrictMode>,
 );

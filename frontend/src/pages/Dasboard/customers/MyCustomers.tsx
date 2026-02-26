@@ -1,4 +1,6 @@
 import { gql, useQuery } from "@apollo/client";
+import { useAuth } from "../../../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const GET_MY_CUSTOMERS = gql`
   query GetMyCustomers {
@@ -19,7 +21,9 @@ interface Customer {
 }
 
 const MyCustomers = () => {
-  // 2. Apollo hook'u ile backend'e sesleniyoruz
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
   const { loading, error, data } = useQuery(GET_MY_CUSTOMERS);
 
   // Veri henüz yoldayken (Paramedik telsiz beklerken gibi)
@@ -33,6 +37,11 @@ const MyCustomers = () => {
         <p>Error occured: {error.message}</p>
       </div>
     );
+
+  const handleLogout = () => {
+    logout();
+    navigate("/signin");
+  };
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -58,6 +67,16 @@ const MyCustomers = () => {
             No registered customers have been found yet.
           </p>
         )}
+      </div>
+
+      <div>
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 text-white px-4 py-2 rounded shadow hover:bg-red-600 transition-all"
+        >
+          Logout
+        </button>
+        {/* ... diğer müşteri listesi kodların ... */}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ type Query {
 
 type Mutation {
   createTenant(name: String!, slug: String!): Tenant!
-  signup(credentials: CredentialsInput!, tenantId: String! ): AuthPayload!
+  signup(credentials: CredentialsInput!, tenantName: String!, slug:String! ): AuthPayload!
   signin(credentials: CredentialsInput!): AuthPayload!
   updateUser(email: String, password: String): User!
 }

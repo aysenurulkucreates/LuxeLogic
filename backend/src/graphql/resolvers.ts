@@ -65,7 +65,7 @@ export const resolvers = {
       }
       throw new Error("You do not have permission to view this list..");
     },
-    myCustomers: async (_: any, { id }: { id: string }, context: any) => {
+    myCustomers: async (_: any, args: any, context: any) => {
       if (!context.user) {
         throw new Error("You must log in to view this list.");
       }
@@ -73,7 +73,9 @@ export const resolvers = {
       if (context.user.role === "SUPER_ADMIN") {
         return await prisma.customer.findMany();
       }
-      if (context.user.role === "TENANT_ADMIN") {
+
+      const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF"];
+      if (allowedRoles.includes(context.user.role)) {
         return await prisma.customer.findMany({
           where: {
             tenantId: context.user.tenantId,
@@ -105,21 +107,54 @@ export const resolvers = {
         data: { name: args.name, slug: args.slug },
       });
     },
-    signup: async (_: any, { credentials, tenantId }: any) => {
+    signup: async (_: any, { credentials, tenantName, slug }: any) => {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: credentials.email },
+      });
+
+      if (existingUser) {
+        throw new Error("This email is already registered");
+      }
+      // 1. Şifreyi güvenli hale getiriyoruz
       const hashedPsw = await bcrypt.hash(credentials.password, 10);
-      const user = await prisma.user.create({
+
+      // 2. Tek bir hamlede hem Tenant hem de User oluşturuyoruz (Atomic Transaction)
+      const newTenant = await prisma.tenant.create({
         data: {
-          password: hashedPsw,
-          email: credentials.email,
-          tenantId: tenantId,
+          name: tenantName,
+          slug: slug,
+          users: {
+            create: {
+              email: credentials.email,
+              password: hashedPsw,
+              role: "TENANT_ADMIN", // İlk kayıt olan kişiye 'Patron' yetkisi veriyoruz
+            },
+          },
+        },
+        // Oluşturduğumuz kullanıcı bilgisini geri almak için 'include' kullanıyoruz
+        include: {
+          users: true,
         },
       });
-      const token = jwt.sign({ userId: user.id }, "supersecretkey", {
-        expiresIn: "3d",
-      });
+
+      // 3. Yeni oluşturulan kullanıcıyı diziden çekiyoruz
+      const createdUser = newTenant.users[0];
+
+      // 4. Kullanıcıya özel token üretiyoruz
+      const token = jwt.sign(
+        {
+          userId: createdUser.id,
+          role: createdUser.role,
+          tenantId: newTenant.id,
+        },
+        "supersecretkey", // Burayı ilerde .env dosyasına taşımayı unutma! ;)
+        { expiresIn: "3d" },
+      );
+
+      // 5. Frontend'in beklediği formatta veriyi dönüyoruz
       return {
         token,
-        user,
+        user: createdUser,
       };
     },
     signin: async (_: any, { credentials }: any) => {
