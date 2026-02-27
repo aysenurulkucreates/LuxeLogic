@@ -15,7 +15,7 @@ const Signup: React.FC = () => {
     onCompleted: (data) => {
       const { token } = data.signup;
       localStorage.setItem("token", token);
-      navigate("/signin");
+      navigate("/overview");
     },
     onError: (error) => {
       setError(error.message);

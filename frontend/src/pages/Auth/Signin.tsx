@@ -13,7 +13,7 @@ const Signin = () => {
   const [signinUser, { loading, error }] = useMutation(SIGNIN_MUTATION, {
     onCompleted: (data) => {
       login(data.signin.token);
-      navigate("/customers");
+      navigate("/overview");
     },
   });
 
