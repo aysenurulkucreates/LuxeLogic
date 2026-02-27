@@ -16,6 +16,8 @@ type Mutation {
   signup(credentials: CredentialsInput!, tenantName: String!, slug:String! ): AuthPayload!
   signin(credentials: CredentialsInput!): AuthPayload!
   updateUser(email: String, password: String): User!
+  createCustomer(name: String, email: String!, phone: String!): Customer
+  deleteCustomer(id: ID!): Customer
 }
 
 enum Role {
@@ -48,6 +50,7 @@ type User {
 
 type Customer {
   id: ID!
+  tenantId: String!
   name: String!
   email: String!
   phone: String!

@@ -1,16 +1,32 @@
-import { useQuery } from "@apollo/client";
-import { UserPlus, Mail, Phone, MoreVertical } from "lucide-react";
+import React, { useState } from "react"; // 1. useState'i ekledik!
+import { useMutation, useQuery } from "@apollo/client";
+import { UserPlus, Mail, Phone, MoreVertical, Trash2 } from "lucide-react";
 import { GET_MY_CUSTOMERS } from "../../../graphql/queries/auth";
+import AddCustomerModal from "../../../components/shared/AddCustomerModal";
+import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
 
 interface Customer {
   id: string;
   name: string;
   email: string;
-  phone: string; // Backend'den genelde string gelir, hata alırsan number yaparsın bbeiş
+  phone: string;
 }
 
-const CustomerList = () => {
+const CustomerList: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const { loading, error, data } = useQuery(GET_MY_CUSTOMERS);
+
+  const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
+    refetchQueries: [{ query: GET_MY_CUSTOMERS }],
+    onCompleted: () => alert("Customer deleted successfully."),
+  });
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this customer? ")) {
+      await deleteCustomer({ variables: { id } });
+    }
+  };
 
   if (loading)
     return (
@@ -37,30 +53,31 @@ const CustomerList = () => {
           </p>
         </div>
 
-        <button className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition shadow-sm font-medium">
+        {/* 3. Butona tıklandığında modalı aç diyoruz */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition shadow-sm font-medium"
+        >
           <UserPlus size={18} />
           Add new customer
         </button>
       </div>
 
-      {/* Liste Konteynırı */}
+      {/* Liste Konteynırı (Tablo kısmı aynı kalıyor) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Tablo Başlıkları */}
         <div className="grid grid-cols-4 bg-gray-50 px-6 py-4 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
           <span>Customer</span>
-          <span>Communicitaion</span>
+          <span>Communication</span>
           <span>Status</span>
           <span className="text-right">Action</span>
         </div>
 
-        {/* Müşteri Satırları */}
         <div className="divide-y divide-gray-50">
           {data?.myCustomers.map((customer: Customer) => (
             <div
               key={customer.id}
               className="grid grid-cols-4 px-6 py-4 items-center hover:bg-indigo-50/30 transition group"
             >
-              {/* İsim ve Avatar */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
                   {customer.name.charAt(0)}
@@ -70,7 +87,6 @@ const CustomerList = () => {
                 </span>
               </div>
 
-              {/* İletişim Bilgileri */}
               <div className="flex flex-col gap-1 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
                   <Mail size={14} className="text-gray-400" />
@@ -82,23 +98,29 @@ const CustomerList = () => {
                 </div>
               </div>
 
-              {/* Durum - MANTIK KISMI 1: Burayı Backend'den gelen veriye göre renklendirmeyi dene! */}
               <div>
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                   Active
                 </span>
               </div>
 
-              {/* İşlemler */}
               <div className="text-right">
                 <button className="p-2 hover:bg-white rounded-lg text-gray-400 hover:text-indigo-600 transition">
                   <MoreVertical size={20} />
+                </button>
+
+                <button
+                  onClick={() => handleDelete(customer.id)} //
+                  className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition"
+                  title="Delete Customer"
+                >
+                  <Trash2 size={20} />{" "}
+                  {/* Bunu yukarıda import etmeyi unutma bbeiş! */}
                 </button>
               </div>
             </div>
           ))}
 
-          {/* Boş Durum (Empty State) */}
           {data?.myCustomers.length === 0 && (
             <div className="p-20 text-center text-gray-500">
               <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
@@ -111,6 +133,12 @@ const CustomerList = () => {
           )}
         </div>
       </div>
+
+      {/* 4. MODALI BURAYA EKLEDİK! */}
+      <AddCustomerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 };

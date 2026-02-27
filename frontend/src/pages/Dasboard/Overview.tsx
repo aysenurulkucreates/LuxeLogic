@@ -1,7 +1,10 @@
 import { useQuery } from "@apollo/client";
 import { GET_ME } from "../../graphql/queries/auth";
+import { useState } from "react";
+import AddCustomerModal from "../../components/shared/AddCustomerModal";
 
 const Overview: React.FC = () => {
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { loading, error, data } = useQuery(GET_ME);
 
   if (loading)
@@ -102,11 +105,18 @@ const Overview: React.FC = () => {
               You can start the process by creating a new customer registration.
             </p>
           </div>
-          <button className="w-full bg-white text-blue-600 py-3 rounded-xl font-bold hover:bg-blue-50 transition">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-full bg-white text-blue-600 py-3 rounded-xl font-bold hover:bg-blue-50 transition"
+          >
             + Add New Customer
           </button>
         </div>
       </div>
+      <AddCustomerModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+      />
     </div>
   );
 };

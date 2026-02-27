@@ -218,5 +218,40 @@ export const resolvers = {
         throw new GraphQLError("An error occurred during the update..");
       }
     },
+    createCustomer: async (
+      _: any,
+      { name, email, phone }: any,
+      context: any,
+    ) => {
+      if (!context.user || !context.user.tenantId) {
+        throw new Error("Authentication required: No tenant context found.");
+      }
+
+      try {
+        const newCustomer = await prisma.customer.create({
+          data: {
+            name: name,
+            email: email,
+            phone: phone,
+            tenantId: context.user.tenantId,
+          },
+        });
+
+        return newCustomer;
+      } catch (err) {
+        console.error("Error creating customer:", err);
+        throw new Error("Failed to create customer.");
+      }
+    },
+    deleteCustomer: async (_: any, { id }: any, context: any) => {
+      if (!context.user) throw new Error("Unauthorized!");
+
+      await prisma.customer.delete({
+        where: {
+          id: id,
+          tenantId: context.user.tenantId,
+        },
+      });
+    },
   },
 };
