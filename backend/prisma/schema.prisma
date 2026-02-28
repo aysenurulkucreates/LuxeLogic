@@ -27,10 +27,11 @@ model Tenant {
 
 // Sistemdeki her bir birey burada tutulur.
 model User {
-  id        String   @id @default(uuid()) 
-  email     String   @unique
-  password  String
-  role      Role     @default(TENANT_ADMIN)
+  id            String   @id @default(uuid()) 
+  email         String   @unique
+  password      String
+  role          Role     @default(TENANT_ADMIN)
+  profileImage  String?
 
   tenantId  String?
   tenant    Tenant?  @relation(fields: [tenantId], references: [id]) 

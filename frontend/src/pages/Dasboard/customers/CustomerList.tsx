@@ -1,6 +1,14 @@
-import React, { useState } from "react"; // 1. useState'i ekledik!
+import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@apollo/client";
-import { UserPlus, Mail, Phone, MoreVertical, Trash2 } from "lucide-react";
+import {
+  UserPlus,
+  Mail,
+  Phone,
+  MoreVertical,
+  Trash2,
+  Pencil,
+  Search,
+} from "lucide-react";
 import { GET_MY_CUSTOMERS } from "../../../graphql/queries/auth";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
@@ -13,14 +21,39 @@ interface Customer {
 }
 
 const CustomerList: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null,
+  );
 
-  const { loading, error, data } = useQuery(GET_MY_CUSTOMERS);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms (Yarım saniye) bekleme süresi
+
+    return () => clearTimeout(timer); // Kullanıcı yazmaya devam ederse eskiyi iptal et!
+  }, [searchTerm]);
+
+  const { loading, error, data } = useQuery(GET_MY_CUSTOMERS, {
+    variables: { searchTerm: debouncedSearchTerm },
+  });
 
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     refetchQueries: [{ query: GET_MY_CUSTOMERS }],
     onCompleted: () => alert("Customer deleted successfully."),
   });
+
+  const handleEdit = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsModalOpen(true);
+  };
+
+  const handleClose = () => {
+    setIsModalOpen(false);
+    setSelectedCustomer(null);
+  };
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this customer? ")) {
@@ -44,6 +77,18 @@ const CustomerList: React.FC = () => {
 
   return (
     <div className="p-8">
+      <div className="relative max-w-md mb-6">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search by name or email..."
+          className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)} // Her harfte anlık state güncellenir
+        />
+      </div>
       {/* Üst Başlık ve Aksiyon Alanı */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
@@ -53,7 +98,6 @@ const CustomerList: React.FC = () => {
           </p>
         </div>
 
-        {/* 3. Butona tıklandığında modalı aç diyoruz */}
         <button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition shadow-sm font-medium"
@@ -63,7 +107,7 @@ const CustomerList: React.FC = () => {
         </button>
       </div>
 
-      {/* Liste Konteynırı (Tablo kısmı aynı kalıyor) */}
+      {/* Liste Konteynırı */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="grid grid-cols-4 bg-gray-50 px-6 py-4 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
           <span>Customer</span>
@@ -104,40 +148,40 @@ const CustomerList: React.FC = () => {
                 </span>
               </div>
 
-              <div className="text-right">
-                <button className="p-2 hover:bg-white rounded-lg text-gray-400 hover:text-indigo-600 transition">
-                  <MoreVertical size={20} />
+              <div className="text-right flex justify-end gap-2">
+                {/* 1. DÜZENLE BUTONU (PENCIL) */}
+                <button
+                  onClick={() => handleEdit(customer)} //
+                  className="p-2 hover:bg-white rounded-lg text-gray-400 hover:text-indigo-600 transition"
+                  title="Edit Customer"
+                >
+                  <Pencil size={20} />
                 </button>
 
+                {/* 2. SİLME BUTONU (TRASH) */}
                 <button
-                  onClick={() => handleDelete(customer.id)} //
+                  onClick={() => handleDelete(customer.id)}
                   className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition"
                   title="Delete Customer"
                 >
-                  <Trash2 size={20} />{" "}
-                  {/* Bunu yukarıda import etmeyi unutma bbeiş! */}
+                  <Trash2 size={20} />
+                </button>
+
+                <button className="p-2 hover:bg-white rounded-lg text-gray-400 transition">
+                  <MoreVertical size={20} />
                 </button>
               </div>
             </div>
           ))}
-
-          {data?.myCustomers.length === 0 && (
-            <div className="p-20 text-center text-gray-500">
-              <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                🔍
-              </div>
-              <p className="italic">
-                You haven't registered any customers yet.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* 4. MODALI BURAYA EKLEDİK! */}
+      {/* 4. MODAL KULLANIMI (GÜNCELLENDİ) */}
       <AddCustomerModal
+        key={selectedCustomer?.id || "new"}
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleClose}
+        initialData={selectedCustomer}
       />
     </div>
   );

@@ -7,13 +7,16 @@ export const GET_ME = gql`
       email
       role
       tenantId
+      tenant {
+        name
+      }
     }
   }
 `;
 
 export const GET_MY_CUSTOMERS = gql`
-  query GetMyCustomers {
-    myCustomers {
+  query GetMyCustomers($searchTerm: String) {
+    myCustomers(searchTerm: $searchTerm) {
       id
       name
       email

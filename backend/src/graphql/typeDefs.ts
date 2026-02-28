@@ -7,7 +7,7 @@ type Query {
   getUser(id: ID!): User
   users: [User]
     
-  myCustomers: [Customer]
+  myCustomers(searchTerm: String): [Customer]!
   getCustomer(id: ID!): Customer
 }
 
@@ -18,6 +18,7 @@ type Mutation {
   updateUser(email: String, password: String): User!
   createCustomer(name: String, email: String!, phone: String!): Customer
   deleteCustomer(id: ID!): Customer
+  updateCustomer(id: ID!, name: String, email: String, phone: String): Customer
 }
 
 enum Role {
@@ -40,6 +41,7 @@ type User {
    email: String!
    password: String!
    role: Role!
+   profileImage: String!
 
    tenantId: String
    tenant: Tenant

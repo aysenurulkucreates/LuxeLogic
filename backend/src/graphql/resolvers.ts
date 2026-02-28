@@ -21,6 +21,7 @@ export const resolvers = {
 
       const user = await prisma.user.findUnique({
         where: { id: context.user.id },
+        include: { tenant: true },
       });
 
       if (!user) {
@@ -65,13 +66,24 @@ export const resolvers = {
       }
       throw new Error("You do not have permission to view this list..");
     },
-    myCustomers: async (_: any, args: any, context: any) => {
+    myCustomers: async (_: any, { searchTerm }: any, context: any) => {
       if (!context.user) {
         throw new Error("You must log in to view this list.");
       }
 
+      const searchFilter = searchTerm
+        ? {
+            OR: [
+              { name: { contains: searchTerm, mode: "insensitive" as const } },
+              { email: { contains: searchTerm, mode: "insensitive" as const } },
+            ],
+          }
+        : {};
+
       if (context.user.role === "SUPER_ADMIN") {
-        return await prisma.customer.findMany();
+        return await prisma.customer.findMany({
+          where: searchFilter,
+        });
       }
 
       const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF"];
@@ -79,6 +91,7 @@ export const resolvers = {
         return await prisma.customer.findMany({
           where: {
             tenantId: context.user.tenantId,
+            ...searchFilter,
           },
         });
       }
@@ -252,6 +265,44 @@ export const resolvers = {
           tenantId: context.user.tenantId,
         },
       });
+    },
+    updateCustomer: async (
+      _: any,
+      { id, name, email, phone }: any,
+      context: any,
+    ) => {
+      if (!context.user || !context.user.tenantId) {
+        throw new Error("Authentication required: No tenant context found.");
+      }
+
+      const updateData = {
+        ...(name && { name }),
+        ...(email && { email }),
+        ...(phone && { phone }),
+      };
+
+      if (Object.keys(updateData).length === 0) {
+        throw new GraphQLError("No data has been sent to be updated..");
+      }
+
+      try {
+        return await prisma.customer.update({
+          where: {
+            id: id,
+            tenantId: context.user.tenantId,
+          },
+          data: updateData,
+        });
+      } catch (error: any) {
+        // 6. Hata Yönetimi: Unique alan kontrolü (örn: email zaten varsa)
+        if (error.code === "P2002") {
+          throw new Error(
+            "This email address is already in use by another customer.",
+          );
+        }
+        console.error("Update error:", error);
+        throw new Error("An error occurred during the update.");
+      }
     },
   },
 };
