@@ -24,3 +24,15 @@ export const GET_MY_CUSTOMERS = gql`
     }
   }
 `;
+
+export const GET_MY_PRODUCTS = gql`
+  query GetMyProducts($searchTerm: String) {
+    myProducts(searchTerm: $searchTerm) {
+      id
+      name
+      category
+      price
+      stock
+    }
+  }
+`;

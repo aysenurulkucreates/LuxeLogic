@@ -18,6 +18,9 @@ const Overview: React.FC = () => {
 
   if (error) return <p>An error occured: {error.message}</p>;
 
+  if (loading) return <p>Loading...</p>;
+  if (!data || !data.me) return <p>Login first.</p>;
+
   const userName = data.me.email.split("@")[0];
 
   return (

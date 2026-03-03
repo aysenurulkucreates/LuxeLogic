@@ -1,5 +1,5 @@
 import { useMutation } from "@apollo/client";
-import { SIGNIN_MUTATION } from "../../graphql/mutations/Auth";
+import { SIGNIN_MUTATION } from "../../graphql/mutations/auth";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";

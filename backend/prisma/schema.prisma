@@ -23,6 +23,7 @@ model Tenant {
   slug      String   @unique
   createdAt DateTime @default(now())
   users     User[]
+  product   Product[]
 }
 
 // Sistemdeki her bir birey burada tutulur.
@@ -45,4 +46,18 @@ model Customer {
   name       String
   email      String
   phone      String
+}
+
+model Product {
+  id         String   @id @default(uuid())
+  tenantId   String
+  name       String
+  category   String
+  price      Float
+  stock      Int      @default(0)
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

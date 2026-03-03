@@ -1,5 +1,5 @@
 import { X, User, Mail, Phone, PlusCircle, Save } from "lucide-react";
-import { useState } from "react"; // useEffect'i sildik bbeiş!
+import { useState } from "react";
 import { useMutation } from "@apollo/client";
 import {
   CREATE_CUSTOMER,
@@ -31,7 +31,6 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   onClose,
   initialData,
 }) => {
-  // --- 1. SİHİRLİ DOKUNUŞ: State'i direkt initialData ile başlatıyoruz ---
   const [formData, setFormData] = useState<CustomerFormData>({
     name: initialData?.name || "",
     email: initialData?.email || "",
@@ -67,12 +66,12 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       await updateCustomer({
         variables: {
           id: initialData.id,
-          ...formData,
+          input: { ...formData },
         },
       });
     } else {
       await createCustomer({
-        variables: { ...formData },
+        variables: { input: { ...formData } },
       });
     }
   };

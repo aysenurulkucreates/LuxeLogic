@@ -1,6 +1,12 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, LogOut, CircleUser } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  LogOut,
+  CircleUser,
+  Package,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth"; // Senin hook'un
 
 interface MenuItem {
@@ -31,6 +37,11 @@ const Sidebar: React.FC = () => {
       name: "Customers",
       path: "/customers",
       icon: Users,
+    },
+    {
+      name: "Products",
+      path: "/products",
+      icon: Package,
     },
   ];
 

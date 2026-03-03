@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Overview from "./pages/Dasboard/Overview";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProfilePage from "./pages/Auth/Profile";
+import ProductList from "./pages/Dasboard/Products";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           {/* Buradaki sayfalar DashboardLayout'un içindeki <Outlet /> kısmına yerleşir */}
           <Route path="/overview" element={<Overview />} />
           <Route path="/customers" element={<CustomerList />} />
+          <Route path="/products" element={<ProductList />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>
