@@ -8,11 +8,14 @@ type Query {
   getUser(id: ID!): User
   users: [User]
     
-  myCustomers(searchTerm: String): [Customer]!
+  myCustomers(searchTerm: String): [Customer!]!
   getCustomer(id: ID!): Customer
 
-  myProducts(searchTerm: String): [Product]!
+  myProducts(searchTerm: String): [Product!]!
   getProduct(id: ID!): Product
+
+  myStaff(searchterm: String): [Staff!]!
+  getStaff(id: ID!): Staff
 
 }
 
@@ -24,13 +27,18 @@ type Mutation {
 
   updateUser(email: String, password: String): User!
 
-  createCustomer(input: CreateCustomerInput! ): Customer
+  createCustomer(input: CreateCustomerInput! ): Customer!
   deleteCustomer(id: ID!): Customer
-  updateCustomer(id: ID!, input: UpdateCustomerInput): Customer
+  updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer!
 
-  createProduct(input: CreateProductInput! ): Product
+  createProduct(input: CreateProductInput! ): Product!
   deleteProduct(id: ID!): Product
-  updateProduct(id: ID!, input: UpdateProductInput): Product
+  updateProduct(id: ID!, input: UpdateProductInput!): Product!
+
+  createStaff(input: CreateStaffInput! ): Staff!
+  deleteStaff(id: ID!): Staff
+  updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
+
 }
 
 enum Role {
@@ -85,6 +93,25 @@ type Product {
 }
 
 
+type Staff {
+  id: ID!
+  tenantId: String!
+  name: String!
+  email: String!
+  phone: String!
+  expertise: String!
+  workDays: [String!]!
+  isActive: Boolean!
+  imageUrl: String
+  bio: String
+
+  tenant: Tenant
+
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+
 type AuthPayload {
   token: String!
   user: User!
@@ -108,6 +135,7 @@ input UpdateCustomerInput {
   phone: String
 }
 
+
 input CreateProductInput {
   name: String!
   category: String!
@@ -121,6 +149,29 @@ input UpdateProductInput {
   category: String
   price: Float
   stock: Int
+}
+
+
+input CreateStaffInput {
+  name: String!
+  email: String!
+  phone: String!
+  expertise: String!
+  workDays: [String!]!
+  isActive: Boolean!
+  imageUrl: String
+  bio: String
+}
+
+input UpdateStaffInput{
+  name: String
+  email: String
+  phone: String
+  expertise: String
+  workDays: [String!]
+  isActive: Boolean
+  imageUrl: String
+  bio: String
 }
 
 `;

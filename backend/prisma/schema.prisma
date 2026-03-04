@@ -24,6 +24,7 @@ model Tenant {
   createdAt DateTime @default(now())
   users     User[]
   product   Product[]
+  staff     Staff[]
 }
 
 // Sistemdeki her bir birey burada tutulur.
@@ -46,6 +47,24 @@ model Customer {
   name       String
   email      String
   phone      String
+}
+
+model Staff {
+  id         String    @id @default(uuid())
+  tenantId   String
+  name       String
+  email      String    @unique
+  phone      String
+  expertise  String
+  workDays   String[]
+  isActive   Boolean   @default(true)
+  imageUrl   String?
+  bio        String?
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }
 
 model Product {
