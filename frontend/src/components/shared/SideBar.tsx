@@ -6,6 +6,7 @@ import {
   LogOut,
   CircleUser,
   Package,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth"; // Senin hook'un
 
@@ -43,6 +44,11 @@ const Sidebar: React.FC = () => {
       path: "/products",
       icon: Package,
     },
+    {
+      name: "Staff",
+      path: "/staff",
+      icon: Package,
+    },
   ];
 
   // 🩺 En altta duracak kişisel rotalar
@@ -51,6 +57,11 @@ const Sidebar: React.FC = () => {
       name: "Profile",
       path: "/profile",
       icon: CircleUser,
+    },
+    {
+      name: "Settings",
+      path: "/settings",
+      icon: SlidersHorizontal,
     },
     {
       name: "Logout",

@@ -25,6 +25,18 @@ export const GET_MY_CUSTOMERS = gql`
   }
 `;
 
+export const GET_CUSTOMER = gql`
+  query GetCustomer($id: ID!) {
+    getCustomer(id: $id) {
+      id
+      tenantId
+      name
+      email
+      phone
+    }
+  }
+`;
+
 export const GET_MY_PRODUCTS = gql`
   query GetMyProducts($searchTerm: String) {
     myProducts(searchTerm: $searchTerm) {
@@ -33,6 +45,52 @@ export const GET_MY_PRODUCTS = gql`
       category
       price
       stock
+    }
+  }
+`;
+
+export const GET_PRODUCT = gql`
+  query GetProduct($id: ID!) {
+    getProduct(id: $id) {
+      id
+      tenantId
+      name
+      category
+      price
+      stock
+    }
+  }
+`;
+
+export const GET_MY_STAFF = gql`
+  query GetMyStaff($searchTerm: String) {
+    myStaff(searchTerm: $searchTerm) {
+      id
+      name
+      email
+      phone
+      expertise
+      workDays
+      isActive
+      imageUrl
+      bio
+    }
+  }
+`;
+
+export const GET_STAFF = gql`
+  query GetStaff($id: ID!) {
+    getStaff(id: $id) {
+      id
+      name
+      email
+      phone
+      expertise
+      workDays
+      isActive
+      imageUrl
+      bio
+      tenantId
     }
   }
 `;

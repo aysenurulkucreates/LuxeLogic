@@ -13,6 +13,7 @@ import Overview from "./pages/Dasboard/Overview";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProfilePage from "./pages/Auth/Profile";
 import ProductList from "./pages/Dasboard/Products";
+import StaffList from "./pages/Dasboard/staff/StaffList";
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="/overview" element={<Overview />} />
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/products" element={<ProductList />} />
+          <Route path="/staff" element={<StaffList />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>

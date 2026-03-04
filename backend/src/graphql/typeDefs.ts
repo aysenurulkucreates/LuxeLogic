@@ -14,7 +14,7 @@ type Query {
   myProducts(searchTerm: String): [Product!]!
   getProduct(id: ID!): Product
 
-  myStaff(searchterm: String): [Staff!]!
+  myStaff(searchTerm: String): [Staff!]!
   getStaff(id: ID!): Staff
 
 }
