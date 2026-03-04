@@ -20,12 +20,11 @@ type Query {
 }
 
 type Mutation {
-  createTenant(name: String!, slug: String!): Tenant!
+  createTenant(input: CreateTenantInput!): Tenant!
 
   signup(credentials: CredentialsInput!, tenantName: String!, slug:String! ): AuthPayload!
   signin(credentials: CredentialsInput!): AuthPayload!
-
-  updateUser(email: String, password: String): User!
+  updateUser(input: UpdateUserInput!): User!
 
   createCustomer(input: CreateCustomerInput! ): Customer!
   deleteCustomer(id: ID!): Customer
@@ -117,6 +116,16 @@ type AuthPayload {
   user: User!
 }
 
+input CreateTenantInput {
+  name: String!
+  slug: String!
+}
+
+input UpdateUserInput {
+ email: String 
+ password: String
+}
+
 input CredentialsInput {
   email: String!
   password: String!
@@ -126,6 +135,7 @@ input CreateCustomerInput {
   name: String!
   email: String!
   phone: String!
+  tenantId: String
  
 }
 
@@ -141,6 +151,7 @@ input CreateProductInput {
   category: String!
   price: Float!
   stock: Int!
+  tenantId: String
 
 }
 
@@ -161,6 +172,7 @@ input CreateStaffInput {
   isActive: Boolean!
   imageUrl: String
   bio: String
+  tenantId: String
 }
 
 input UpdateStaffInput{

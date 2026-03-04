@@ -32,6 +32,7 @@ export const resolvers = {
 
       return user;
     },
+    // users
     getUser: async (_: any, { id }: { id: string }, context: myContext) => {
       if (!context.user) {
         return null;
@@ -101,19 +102,17 @@ export const resolvers = {
       throw new Error("You do not have permission to view this list..");
     },
     getCustomer: async (_: any, { id }: { id: string }, context: any) => {
-      if (!context.user) {
-        return null;
-      }
+      if (!context.user) return null;
 
       const customer = await prisma.customer.findFirst({
-        where: { id: id, tenantId: context.user.tenantId },
+        where: {
+          id: id,
+          ...(context.user.role !== "SUPER_ADMIN"
+            ? { tenantId: context.user.tenantId }
+            : {}),
+        },
       });
 
-      if (!customer) {
-        throw new Error(
-          "The customer could not be found, or you do not have permission to access this data.",
-        );
-      }
       return customer;
     },
     // products
@@ -155,30 +154,107 @@ export const resolvers = {
       throw new Error("You do not have permission to view this list..");
     },
     getProduct: async (_: any, { id }: { id: string }, context: any) => {
-      if (!context.user || !context.user.tenantId) {
-        throw new Error("Authentication required.");
-      }
+      if (!context.user) return null;
 
       const product = await prisma.product.findFirst({
         where: {
           id: id,
-          tenantId: context.user.tenantId,
+          ...(context.user.role !== "SUPER_ADMIN"
+            ? { tenantId: context.user.tenantId }
+            : {}),
         },
       });
 
-      if (!product) {
-        throw new Error("Product not found or access denied.");
+      return product;
+    },
+    // staff
+    myStaff: async (_: any, { searchTerm }: any, context: any) => {
+      if (!context.user || !context.user.tenantId) {
+        throw new Error("Authentication required: No tenant context found.");
       }
 
-      // 🚑 AMELİYAT SONU: Hastayı taburcu et!
-      return product;
+      const cleanSearch = searchTerm?.trim();
+      const searchFilter = cleanSearch
+        ? {
+            OR: [
+              { name: { contains: cleanSearch, mode: "insensitive" as const } },
+              {
+                expertise: {
+                  contains: cleanSearch,
+                  mode: "insensitive" as const,
+                },
+              },
+            ],
+          }
+        : {};
+
+      if (context.user.role === "SUPER_ADMIN") {
+        return await prisma.staff.findMany({
+          where: searchFilter,
+        });
+      }
+
+      if (context.user.role === "TENANT_ADMIN") {
+        if (!context.user.tenantId) {
+          throw new Error("Tenant ID is required for this role.");
+        }
+
+        return await prisma.staff.findMany({
+          where: {
+            tenantId: context.user.tenantId,
+            ...searchFilter,
+          },
+        });
+      }
+
+      throw new Error("Unauthorized access.");
+    },
+    getStaff: async (_: any, { id }: { id: string }, context: any) => {
+      if (!context.user) return null;
+
+      const staff = await prisma.staff.findFirst({
+        where: {
+          id: id,
+          ...(context.user.role !== "SUPER_ADMIN"
+            ? { tenantId: context.user.tenantId }
+            : {}),
+        },
+      });
+
+      return staff;
     },
   },
   Mutation: {
-    createTenant: async (_: any, args: any) => {
-      return await prisma.tenant.create({
-        data: { name: args.name, slug: args.slug },
-      });
+    createTenant: async (_: any, { input }: any, context: any) => {
+      // 1. Yetki Kontrolü (En Kritik Dikiş) 💉
+      // Sadece sistemin ana sahibi (SUPER_ADMIN) yeni bir tenant (kliniik) ekleyebilmeli.
+      if (!context.user || context.user.role !== "SUPER_ADMIN") {
+        throw new Error("Only the Super Admin can create a new tenant.");
+      }
+
+      const { name, slug } = input;
+
+      // 2. Slug Kontrolü (Opsiyonel ama Profesyonelce)
+      // Slug genelde küçük harf ve tireli olur: "luxe-clinic" gibi.
+      const cleanSlug = slug.toLowerCase().trim().replace(/\s+/g, "-");
+
+      try {
+        return await prisma.tenant.create({
+          data: {
+            name,
+            slug: cleanSlug,
+          },
+        });
+      } catch (err: any) {
+        // 3. Unique Constraint Kontrolü (Slug zaten varsa) 🔬
+        if (err.code === "P2002") {
+          throw new Error(
+            "This slug (URL identifier) is already in use by another tenant.",
+          );
+        }
+        console.error("Create Tenant Error:", err);
+        throw new Error("Failed to create tenant.");
+      }
     },
     signup: async (_: any, { credentials, tenantName, slug }: any) => {
       const existingUser = await prisma.user.findUnique({
@@ -246,36 +322,27 @@ export const resolvers = {
       }
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role },
+        { userId: user.id, role: user.role, tenantId: user.tenantId },
         "supersecretkey",
         { expiresIn: "3d" },
       );
 
       return { token, user };
     },
-    updateUser: async (_: any, { email, password }: any, context: any) => {
-      // 1. Yetki Kontrolü
-      if (!context.user) {
-        throw new GraphQLError("You must login first.", {
-          extensions: { code: "UNAUTHENTICATED" },
-        });
-      }
+    updateUser: async (_: any, { input }: any, context: any) => {
+      if (!context.user) throw new Error("You must login first.");
 
+      const { email, password } = input;
       const updateData: any = {};
 
-      // 2. Email Güncelleme Hazırlığı
-      if (email) {
-        updateData.email = email;
+      if (email !== undefined) updateData.email = email;
+
+      if (password !== undefined && password.trim().length > 0) {
+        updateData.password = await bcrypt.hash(password, 10); // Sadece hashli hali kutuya girsin!
       }
 
-      // 3. Şifre Hashleme (Sadece şifre gelmişse ve boş değilse)
-      if (password && password.trim().length > 0) {
-        updateData.password = await bcrypt.hash(password, 10);
-      }
-
-      // 4. Eğer güncellenecek bir şey yoksa boşuna DB'ye gitme
       if (Object.keys(updateData).length === 0) {
-        throw new GraphQLError("No data has been sent to be updated..");
+        throw new Error("No data provided for update.");
       }
 
       try {
@@ -284,20 +351,25 @@ export const resolvers = {
           data: updateData,
         });
       } catch (error: any) {
-        // P2002 Prisma'nın unique constraint hata kodudur (örn: email zaten varsa)
         if (error.code === "P2002") {
-          throw new GraphQLError("This email address is already in use..");
+          throw new Error("This email address is already in use.");
         }
-        throw new GraphQLError("An error occurred during the update..");
+        console.error("User update error:", error);
+        throw new Error("Update failed.");
       }
     },
     // customers
     createCustomer: async (_: any, { input }: any, context: any) => {
-      if (!context.user?.tenantId) {
-        throw new Error("Authentication required.");
-      }
+      if (!context.user)
+        throw new Error("You must be logged in to perform this action.");
 
-      // 2. Destructuring ile Veriyi Sabitleme (Spread yerine daha güvenli)
+      const targetTenantId =
+        context.user.role === "SUPER_ADMIN"
+          ? input.tenantId
+          : context.user.tenantId;
+
+      if (!targetTenantId) throw new Error("Target tenant ID is required!");
+
       const { name, email, phone } = input;
 
       try {
@@ -306,8 +378,7 @@ export const resolvers = {
             name,
             email,
             phone,
-
-            tenantId: context.user.tenantId,
+            tenantId: targetTenantId,
           },
         });
         return newCustomer;
@@ -320,67 +391,60 @@ export const resolvers = {
       }
     },
     deleteCustomer: async (_: any, { id }: any, context: any) => {
-      if (!context.user || !context.user.tenantId)
-        throw new Error("Unauthorized!");
+      if (!context.user)
+        throw new Error("You must be logged in to perform this action.");
+
+      const where = {
+        id: id,
+        ...(context.user.role !== "SUPER_ADMIN"
+          ? { tenantId: context.user.tenantId }
+          : {}),
+      };
 
       try {
-        const customer = await prisma.customer.findFirst({
-          where: {
-            id: id,
-            tenantId: context.user.tenantId,
-          },
-        });
+        const deleted = await prisma.customer.deleteMany({ where });
 
-        if (!customer) {
-          throw new Error("Customer not found or access denied");
-        }
-        await prisma.customer.delete({
-          where: { id: id },
-        });
-
-        return customer;
+        if (deleted.count === 0)
+          throw new Error("Customer not found or you do not have permission.");
+        return { id };
       } catch (err) {
         console.error("Error deleting customer:", err);
         throw new Error("Failed to delete customer.");
       }
     },
     updateCustomer: async (_: any, { id, input }: any, context: any) => {
-      if (!context.user || !context.user.tenantId) {
-        throw new Error("Authentication required: No tenant context found.");
-      }
+      if (!context.user) throw new Error("You must be logged in.");
 
-      const updateData = {
-        ...(input.name !== undefined && { name: input.name }),
-        ...(input.email !== undefined && { email: input.email }),
-        ...(input.phone !== undefined && { phone: input.phone }),
+      const where = {
+        id: id,
+        ...(context.user.role !== "SUPER_ADMIN"
+          ? { tenantId: context.user.tenantId }
+          : {}),
       };
 
-      if (Object.keys(updateData).length === 0) {
-        throw new GraphQLError("No data has been sent to be updated.");
-      }
+      const { name, email, phone } = input;
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+
+      if (Object.keys(updateData).length === 0)
+        throw new Error("No data sent to be updated.");
 
       try {
-        const customer = await prisma.customer.findFirst({
-          where: {
-            id: id,
-            tenantId: context.user.tenantId,
-          },
-        });
+        const customer = await prisma.customer.findFirst({ where });
+
         if (!customer) {
           throw new Error("Customer not found or access denied.");
         }
 
-        const updatedCustomer = await prisma.customer.update({
+        return await prisma.customer.update({
           where: { id: id },
           data: updateData,
         });
-        return updatedCustomer;
       } catch (error: any) {
-        // 6. Hata Yönetimi: Unique alan kontrolü (örn: email zaten varsa)
         if (error.code === "P2002") {
-          throw new Error(
-            "This email address is already in use by another customer.",
-          );
+          throw new Error("This email is already in use by another customer.");
         }
         console.error("Update error:", error);
         throw new Error("An error occurred during the update.");
@@ -388,17 +452,26 @@ export const resolvers = {
     },
     // products
     createProduct: async (_: any, { input }: any, context: any) => {
-      if (!context.user || !context.user.tenantId) {
-        throw new Error("Authentication required: No tenant context found.");
-      }
+      if (!context.user)
+        throw new Error("You must be logged in to perform this action.");
+
+      const targetTenantId =
+        context.user.role === "SUPER_ADMIN"
+          ? input.tenantId
+          : context.user.tenantId;
+
+      if (!targetTenantId) throw new Error("Target tenant ID is required!");
+
+      const { name, price, category, stock } = input;
+
       try {
         const newProduct = await prisma.product.create({
           data: {
-            name: input.name,
-            price: input.price,
-            category: input.category,
-            stock: input.stock,
-            tenantId: context.user.tenantId,
+            name,
+            price,
+            category,
+            stock,
+            tenantId: targetTenantId,
           },
         });
         return newProduct;
@@ -408,55 +481,54 @@ export const resolvers = {
       }
     },
     deleteProduct: async (_: any, { id }: any, context: any) => {
-      if (!context.user || !context.user.tenantId) {
-        throw new Error("Authentication required: No tenant context found.");
+      if (!context.user) {
+        throw new Error("You must be logged in to perform this action.");
       }
 
+      const where = {
+        id: id,
+        ...(context.user.role !== "SUPER_ADMIN"
+          ? { tenantId: context.user.tenantId }
+          : {}),
+      };
+
       try {
-        const product = await prisma.product.findFirst({
-          where: {
-            id: id,
-            tenantId: context.user.tenantId,
-          },
-        });
+        const deleted = await prisma.product.deleteMany({ where });
 
-        if (!product) {
-          throw new Error("Product not found or access denied.");
-        }
+        if (deleted.count === 0)
+          throw new Error("Product not found or you do not have permission.");
 
-        await prisma.product.delete({
-          where: { id: id },
-        });
-
-        return product;
+        return { id };
       } catch (err) {
         console.error("Error deleting product:", err);
         throw new Error("Failed to delete product.");
       }
     },
     updateProduct: async (_: any, { id, input }: any, context: any) => {
-      if (!context.user || !context.user.tenantId) {
-        throw new Error("Authentication required: No tenant context found.");
+      if (!context.user) {
+        throw new Error("You must be logged in to perform this action.");
       }
 
-      const updateData = {
-        ...(input.name !== undefined && { name: input.name }),
-        ...(input.category !== undefined && { category: input.category }),
-        ...(input.price !== undefined && { price: input.price }),
-        ...(input.stock !== undefined && { stock: input.stock }),
+      const where = {
+        id: id,
+        ...(context.user.role !== "SUPER_ADMIN"
+          ? { tenantId: context.user.tenantId }
+          : {}),
       };
 
-      if (Object.keys(updateData).length === 0) {
+      const { name, category, price, stock } = input;
+      const updateData: any = {};
+
+      if (name !== undefined) updateData.name = name;
+      if (category !== undefined) updateData.category = category;
+      if (price !== undefined) updateData.price = price;
+      if (stock !== undefined) updateData.stock = stock;
+
+      if (Object.keys(updateData).length === 0)
         throw new GraphQLError("No data has been sent to be updated..");
-      }
 
       try {
-        const product = await prisma.product.findFirst({
-          where: {
-            id: id,
-            tenantId: context.user.tenantId,
-          },
-        });
+        const product = await prisma.product.findFirst({ where });
         if (!product) {
           throw new Error("Product not found or access denied.");
         }
@@ -469,6 +541,136 @@ export const resolvers = {
       } catch (err) {
         console.error("Error updating product:", err);
         throw new Error("Failed to update product.");
+      }
+    },
+    //staff
+    createStaff: async (_: any, { input }: any, context: any) => {
+      if (!context.user) throw new Error("You must be logged in.");
+
+      const {
+        name,
+        email,
+        phone,
+        expertise,
+        workDays,
+        isActive,
+        imageUrl,
+        bio,
+        tenantId: inputTenantId,
+      } = input;
+
+      // Super Admin ise input'tan gelen tenantId'yi kullanır, değilse kendi tenantId'sini.
+      const targetTenantId =
+        context.user.role === "SUPER_ADMIN"
+          ? input.tenantId
+          : context.user.tenantId;
+
+      if (!targetTenantId) {
+        throw new Error("Target tenant ID is required for this operation.");
+      }
+
+      try {
+        const newStaff = await prisma.staff.create({
+          data: {
+            name,
+            email,
+            phone,
+            expertise,
+            workDays,
+            isActive,
+            imageUrl,
+            bio,
+            tenantId: targetTenantId,
+          },
+        });
+        return newStaff;
+      } catch (err: any) {
+        // 💉 Spesifik hata kontrolü (Email zaten varsa)
+        if (err.code === "P2002") {
+          throw new Error(
+            "This email is already registered to another staff member.",
+          );
+        }
+        console.error("Error creating staff:", err);
+        throw new Error("An unexpected error occurred while creating staff.");
+      }
+    },
+    deleteStaff: async (_: any, { id }: any, context: any) => {
+      if (!context.user) {
+        throw new Error("You must be logged in to perform this action.");
+      }
+
+      const where = {
+        id: id,
+        ...(context.user.role !== "SUPER_ADMIN"
+          ? { tenantId: context.user.tenantId }
+          : {}),
+      };
+
+      try {
+        const deleted = await prisma.staff.deleteMany({ where });
+
+        if (deleted.count === 0)
+          throw new Error("Staff not found or you do not have permission.");
+
+        return { id };
+      } catch (err) {
+        console.error("Error deleting staff:", err);
+        throw new Error("Failed to delete staff.");
+      }
+    },
+    updateStaff: async (_: any, { id, input }: any, context: any) => {
+      if (!context.user) {
+        throw new Error("You must be logged in to perform this action.");
+      }
+
+      const where = {
+        id: id,
+        ...(context.user.role !== "SUPER_ADMIN"
+          ? { tenantId: context.user.tenantId }
+          : {}),
+      };
+
+      const {
+        name,
+        email,
+        phone,
+        expertise,
+        workDays,
+        isActive,
+        imageUrl,
+        bio,
+      } = input;
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (expertise !== undefined) updateData.expertise = expertise;
+      if (workDays !== undefined) updateData.workDays = workDays;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+      if (bio !== undefined) updateData.bio = bio;
+
+      if (Object.keys(updateData).length === 0)
+        throw new Error("No data sent to be updated.");
+
+      try {
+        const staff = await prisma.staff.findFirst({ where });
+
+        if (!staff) throw new Error("Staff not found or access denied.");
+
+        return await prisma.staff.update({
+          where: { id: id },
+          data: updateData,
+        });
+      } catch (error: any) {
+        if (error.code === "P2002") {
+          throw new Error(
+            "This email is already in use by another staff member.",
+          );
+        }
+        console.error("Update error:", error);
+        throw new Error("An error occurred during the update.");
       }
     },
   },
