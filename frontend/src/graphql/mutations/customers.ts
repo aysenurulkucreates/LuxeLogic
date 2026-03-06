@@ -22,7 +22,7 @@ export const DELETE_CUSTOMER = gql`
 `;
 
 export const UPDATE_CUSTOMER = gql`
-  mutation UpdateCustomer($id: ID!, $input: UpdateCustomerInput) {
+  mutation UpdateCustomer($id: ID!, $input: UpdateCustomerInput!) {
     updateCustomer(id: $id, input: $input) {
       id
       tenantId

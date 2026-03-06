@@ -12,7 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Overview from "./pages/Dasboard/Overview";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProfilePage from "./pages/Auth/Profile";
-import ProductList from "./pages/Dasboard/Products";
+import ProductList from "./pages/Dasboard/products/Products";
 import StaffList from "./pages/Dasboard/staff/StaffList";
 
 function App() {

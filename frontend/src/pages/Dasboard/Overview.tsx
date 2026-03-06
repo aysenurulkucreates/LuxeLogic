@@ -2,121 +2,202 @@ import { useQuery } from "@apollo/client";
 import { GET_ME } from "../../graphql/queries/auth";
 import { useState } from "react";
 import AddCustomerModal from "../../components/shared/AddCustomerModal";
+import {
+  Users,
+  Calendar,
+  Briefcase,
+  Clock,
+  ArrowUpRight,
+  Plus,
+  Activity,
+} from "lucide-react";
 
 const Overview: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { loading, error, data } = useQuery(GET_ME);
 
+  // 🏥 ADIM 1: Tanı ve Müdahale (Loading/Error)
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-xl font-semibold animate-pulse text-blue-600">
-          LuxeLogic Loading...
+      <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
+        <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+        <p className="text-slate-400 font-black tracking-widest uppercase text-xs">
+          LuxeLogic Initializing...
         </p>
       </div>
     );
 
-  if (error) return <p>An error occured: {error.message}</p>;
+  if (error)
+    return (
+      <div className="p-8 bg-rose-50 border border-rose-100 rounded-3xl text-rose-600 font-bold">
+        🚨 Diagnostic Failure: {error.message}
+      </div>
+    );
 
-  if (loading) return <p>Loading...</p>;
-  if (!data || !data.me) return <p>Login first.</p>;
+  if (!data?.me)
+    return (
+      <div className="p-8 text-slate-500 font-bold">
+        Please login to access the clinic dashboard.
+      </div>
+    );
 
   const userName = data.me.email.split("@")[0];
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      {/* Üst Karşılama Alanı */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome, {userName}! 👋
+    <div className="p-10 max-w-7xl mx-auto animate-in fade-in duration-700">
+      {/* 🌟 Karşılanma (Welcome) */}
+      <div className="mb-12">
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+          Welcome back, <span className="text-indigo-600">{userName}</span>! 👋
         </h1>
-        <p className="text-gray-600 mt-2">
-          Take a look at the current state of your clinic.
+        <p className="text-slate-500 font-medium mt-2">
+          Here's what's happening at your clinic today.
         </p>
       </div>
 
-      {/* İstatistik Kartları Girdisi */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {/* Kart 1: Toplam Müşteri */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <span className="p-3 bg-blue-50 text-blue-600 rounded-xl">👥</span>
-            <span className="text-green-500 text-sm font-medium">+12%</span>
-          </div>
-          <h3 className="text-gray-500 text-sm font-medium">Total Customer</h3>
-          <p className="text-2xl font-bold text-gray-900">1,284</p>
-        </div>
-
-        {/* Kart 2: Günlük Randevu */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <span className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-              📅
+      {/* 📊 İstatistik Kartları (The Luxe Quads) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        {/* Kart 1: Customers */}
+        <div className="bg-white p-7 rounded-4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-indigo-200 transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Users size={24} />
+            </div>
+            <span className="flex items-center gap-1 text-emerald-500 text-xs font-black bg-emerald-50 px-2 py-1 rounded-lg">
+              <ArrowUpRight size={14} /> +12%
             </span>
-            <span className="text-purple-500 text-sm font-medium">Today</span>
           </div>
-          <h3 className="text-gray-500 text-sm font-medium">Appointments</h3>
-          <p className="text-2xl font-bold text-gray-900">24</p>
+          <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
+            Total Customers
+          </h3>
+          <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
+            1,284
+          </p>
         </div>
 
-        {/* --- MANTIK KISMI 2 ---
-            Buraya 2 tane daha kart ekleyebilirsin. Örneğin: "Aktif Abonelikler" veya "Bekleyen İşlemler".
-            Tasarımı kopyalayıp ikonları ve renkleri değiştirmeyi dene yavrum!
-        */}
+        {/* Kart 2: Appointments */}
+        <div className="bg-white p-7 rounded-4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-purple-200 transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Calendar size={24} />
+            </div>
+            <span className="text-purple-500 text-[10px] font-black uppercase bg-purple-50 px-2 py-1 rounded-lg tracking-tighter">
+              Today
+            </span>
+          </div>
+          <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
+            Appointments
+          </h3>
+          <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
+            24
+          </p>
+        </div>
+
+        {/* 💉 ÖDEV: Kart 3 - Active Staff */}
+        <div className="bg-white p-7 rounded-4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-blue-200 transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Briefcase size={24} />
+            </div>
+            <span className="text-blue-500 text-[10px] font-black uppercase bg-blue-50 px-2 py-1 rounded-lg tracking-tighter">
+              On Duty
+            </span>
+          </div>
+          <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
+            Active Staff
+          </h3>
+          <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
+            12
+          </p>
+        </div>
+
+        {/* 💉 ÖDEV: Kart 4 - Pending Tasks */}
+        <div className="bg-white p-7 rounded-4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-rose-200 transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Clock size={24} />
+            </div>
+            <span className="text-rose-500 text-[10px] font-black uppercase bg-rose-50 px-2 py-1 rounded-lg tracking-tighter">
+              Attention
+            </span>
+          </div>
+          <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
+            Pending Tasks
+          </h3>
+          <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
+            08
+          </p>
+        </div>
       </div>
 
-      {/* Alt Bölüm: Son İşlemler ve Hızlı Linkler */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            Last Customer Transactions
-          </h2>
+      {/* 🏗️ Alt Panel Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        {/* Last Transactions */}
+        <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-50">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+              Recent Activity
+            </h2>
+            <button className="text-indigo-600 text-xs font-black uppercase tracking-widest hover:underline transition-all">
+              View All Report
+            </button>
+          </div>
 
-          {/* --- MANTIK KISMI 3 ---
-              Aşağıdaki liste şimdilik statik. 
-              ÖDEV: Bir gün bu listeyi backend'den gelen "customers" dizisiyle 
-              dönmek (mapping) gerekecek. Şimdilik tasarımını gör diye böyle bırakıyorum.
-          */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition"
+                className="flex items-center justify-between p-5 hover:bg-indigo-50/30 rounded-3xl transition-all group border border-transparent hover:border-indigo-50"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gray-200" />
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                    <Activity size={24} />
+                  </div>
                   <div>
-                    <p className="font-semibold text-gray-900">
-                      Customer name {item}
+                    <p className="font-bold text-slate-800 text-lg">
+                      Customer Transaction #{item}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      New registration made
+                    <p className="text-sm text-slate-400 font-medium tracking-tight">
+                      System registration completed successfully.
                     </p>
                   </div>
                 </div>
-                <span className="text-sm text-gray-400">2 hour ago</span>
+                <span className="text-xs font-black text-slate-300 group-hover:text-indigo-500 transition-colors uppercase">
+                  2h ago
+                </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Hızlı Aksiyonlar */}
-        <div className="bg-blue-600 p-6 rounded-2xl text-white shadow-lg flex flex-col justify-between">
-          <div>
-            <h2 className="text-xl font-bold mb-4">Fast Action</h2>
-            <p className="text-blue-100 mb-6">
-              You can start the process by creating a new customer registration.
+        {/* 🚀 Modernized Fast Action Card */}
+        <div className="bg-linear-to-br from-indigo-600 to-violet-700 p-10 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200 flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+
+          <div className="relative z-10">
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-8 backdrop-blur-md">
+              <Plus size={28} />
+            </div>
+            <h2 className="text-3xl font-black mb-4 tracking-tighter">
+              Fast Action
+            </h2>
+            <p className="text-indigo-100 font-medium leading-relaxed">
+              Streamline your workflow by initiating a new customer registration
+              immediately.
             </p>
           </div>
+
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="w-full bg-white text-blue-600 py-3 rounded-xl font-bold hover:bg-blue-50 transition"
+            className="w-full bg-white text-indigo-600 py-5 rounded-3xl font-black text-lg shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 mt-10 relative z-10"
           >
-            + Add New Customer
+            Create New Profile
           </button>
         </div>
       </div>
+
       <AddCustomerModal
+        key={isAddModalOpen ? "open" : "closed"}
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />

@@ -10,9 +10,9 @@ import {
   PackagePlus,
   PackageSearch,
 } from "lucide-react";
-import { GET_MY_PRODUCTS } from "../../graphql/queries/auth";
-import { DELETE_PRODUCT } from "../../graphql/mutations/products";
-import AddProductModal from "../../components/shared/AddProductModal";
+import { GET_MY_PRODUCTS } from "../../../graphql/queries/auth";
+import AddProductModal from "../../../components/shared/AddProductModal";
+import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
 
 interface Product {
   id: string;
