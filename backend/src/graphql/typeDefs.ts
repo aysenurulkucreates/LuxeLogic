@@ -17,6 +17,9 @@ type Query {
   myStaff(searchTerm: String): [Staff!]!
   getStaff(id: ID!): Staff
 
+  getDashboardStats: DashboardStats
+  getRecentCustomers: [Customer]!
+
 }
 
 type Mutation {
@@ -75,6 +78,7 @@ type Customer {
   name: String!
   email: String!
   phone: String!
+  createdAt: DateTime!
 }
 
 type Product {
@@ -110,6 +114,12 @@ type Staff {
   updatedAt: DateTime!
 }
 
+type DashboardStats {
+  customerCount: Int
+  staffCount: Int
+  productCount: Int
+  appointmentCount: Int
+}
 
 type AuthPayload {
   token: String!

@@ -94,3 +94,26 @@ export const GET_STAFF = gql`
     }
   }
 `;
+
+export const GET_DASHBOARD_STATS = gql`
+  query GetDashboardStats {
+    getDashboardStats {
+      customerCount
+      staffCount
+      productCount
+      appointmentCount
+    }
+  }
+`;
+
+export const GET_RECENT_CUSTOMERS = gql`
+  query GetRecentCustomers {
+    getRecentCustomers {
+      id
+      name
+      email
+      phone
+      createdAt
+    }
+  }
+`;

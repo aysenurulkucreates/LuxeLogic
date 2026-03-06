@@ -26,7 +26,6 @@ model Tenant {
   product   Product[]
   staff     Staff[]
 }
-
 // Sistemdeki her bir birey burada tutulur.
 model User {
   id            String   @id @default(uuid()) 
@@ -47,6 +46,9 @@ model Customer {
   name       String
   email      String
   phone      String
+
+  createdAt  DateTime @default(now()) 
+  updatedAt  DateTime @updatedAt
 }
 
 model Staff {
