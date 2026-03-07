@@ -32,6 +32,7 @@ export const resolvers = {
 
       return foundUser;
     },
+
     // users
     getUser: async (
       _: any,
@@ -61,6 +62,7 @@ export const resolvers = {
       }
       throw new Error("You do not have permission to view this list..");
     },
+
     // customers
     myCustomers: async (
       _: any,
@@ -115,6 +117,7 @@ export const resolvers = {
 
       return customer;
     },
+
     // products
     myProducts: async (
       _: any,
@@ -173,6 +176,7 @@ export const resolvers = {
 
       return product;
     },
+
     // staff
     myStaff: async (
       _: any,
@@ -235,6 +239,19 @@ export const resolvers = {
 
       return staff;
     },
+
+    //appointments
+    myAppointments: async (
+      _: any,
+      { input }: any,
+      { prisma, user }: myContext,
+    ) => {},
+    getAppointment: async (
+      _: any,
+      { id }: { id: string },
+      { prisma, user }: myContext,
+    ) => {},
+
     // dashboard istatistik
     getDashboardStats: async (_: any, __: any, { prisma, user }: myContext) => {
       if (!user) throw new Error("Unauthorized. Please login first.");
@@ -418,6 +435,7 @@ export const resolvers = {
         throw new Error("Update failed.");
       }
     },
+
     // customers
     createCustomer: async (
       _: any,
@@ -516,6 +534,7 @@ export const resolvers = {
         throw new Error("An error occurred during the update.");
       }
     },
+
     // products
     createProduct: async (
       _: any,
@@ -611,6 +630,7 @@ export const resolvers = {
         throw new Error("Failed to update product.");
       }
     },
+
     //staff
     createStaff: async (
       _: any,
@@ -740,5 +760,22 @@ export const resolvers = {
         throw new Error("An error occurred during the update.");
       }
     },
+
+    // appointments
+    createAppointment: async (
+      _: any,
+      { input }: any,
+      { prisma, user }: myContext,
+    ) => {},
+    deleteAppointment: async (
+      _: any,
+      { id }: any,
+      { prisma, user }: myContext,
+    ) => {},
+    updateAppointment: async (
+      _: any,
+      { id, input }: any,
+      { prisma, user }: myContext,
+    ) => {},
   },
 };

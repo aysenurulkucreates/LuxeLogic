@@ -17,6 +17,9 @@ type Query {
   myStaff(searchTerm: String): [Staff!]!
   getStaff(id: ID!): Staff
 
+  myAppointments(input: AppointmentFilterInput): [Appointment!]!
+  getAppointment(id: ID!): Appointment 
+
   getDashboardStats: DashboardStats
   getRecentCustomers: [Customer]!
 
@@ -30,16 +33,20 @@ type Mutation {
   updateUser(input: UpdateUserInput!): User!
 
   createCustomer(input: CreateCustomerInput! ): Customer!
-  deleteCustomer(id: ID!): Customer
+  deleteCustomer(id: ID!): DeleteResponse!
   updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer!
 
   createProduct(input: CreateProductInput! ): Product!
-  deleteProduct(id: ID!): Product
+  deleteProduct(id: ID!): DeleteResponse!
   updateProduct(id: ID!, input: UpdateProductInput!): Product!
 
-  createStaff(input: CreateStaffInput! ): Staff!
-  deleteStaff(id: ID!): Staff
+  createStaff(input: CreateStaffInput!): Staff!
+  deleteStaff(id: ID!): DeleteResponse!
   updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
+
+  createAppointment(input: CreateAppointmentInput!): Appointment!
+  deleteAppointment(id: ID!): DeleteResponse!
+  updateAppointment(id: ID!, input: UpdateAppointmentInput!): Appointment!
 
 }
 
@@ -48,6 +55,13 @@ enum Role {
   TENANT_ADMIN
   DOCTOR
   STAFF
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
 }
 
 type Tenant {
@@ -114,6 +128,24 @@ type Staff {
   updatedAt: DateTime!
 }
 
+type Appointment {
+  id: ID!
+  
+  startTime: DateTime!
+  endTime: DateTime!
+
+  status: AppointmentStatus!
+
+  customer: Customer!
+  staff: Staff!
+  tenant: Tenant!
+ }
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
 type DashboardStats {
   customerCount: Int
   staffCount: Int
@@ -121,10 +153,12 @@ type DashboardStats {
   appointmentCount: Int
 }
 
-type AuthPayload {
-  token: String!
-  user: User!
+type DeleteResponse {
+  success: Boolean!
+  message: String
+  deletedId: ID
 }
+
 
 input CreateTenantInput {
   name: String!
@@ -194,6 +228,35 @@ input UpdateStaffInput{
   isActive: Boolean
   imageUrl: String
   bio: String
+}
+
+input AppointmentFilterInput {
+  searchTerm: String
+  status: AppointmentStatus
+  startDate: DateTime
+  endDate: DateTime
+}
+
+input CreateAppointmentInput {
+  startTime: DateTime!
+  endTime: DateTime!
+
+  customerId: ID!
+  staffId: ID!
+
+  notes: String
+  status: AppointmentStatus!
+}
+
+input UpdateAppointmentInput {
+  startTime: DateTime
+  endTime: DateTime
+
+  customerId: ID
+  staffId: ID
+
+  notes: String
+  status: AppointmentStatus
 }
 
 `;
