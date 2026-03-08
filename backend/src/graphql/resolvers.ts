@@ -183,9 +183,7 @@ export const resolvers = {
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user || !user.tenantId) {
-        throw new Error("Authentication required: No tenant context found.");
-      }
+      if (!user) return null;
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -193,35 +191,16 @@ export const resolvers = {
             OR: [
               { name: { contains: cleanSearch, mode: "insensitive" as const } },
               {
-                expertise: {
-                  contains: cleanSearch,
-                  mode: "insensitive" as const,
-                },
+                email: { contains: cleanSearch, mode: "insensitive" as const },
               },
             ],
           }
         : {};
 
-      if (user.role === "SUPER_ADMIN") {
-        return await prisma.staff.findMany({
-          where: searchFilter,
-        });
-      }
-
-      if (user.role === "TENANT_ADMIN") {
-        if (!user.tenantId) {
-          throw new Error("Tenant ID is required for this role.");
-        }
-
-        return await prisma.staff.findMany({
-          where: {
-            tenantId: user.tenantId,
-            ...searchFilter,
-          },
-        });
-      }
-
-      throw new Error("Unauthorized access.");
+      return await prisma.staff.findMany({
+        where: user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
+        ...searchFilter,
+      });
     },
     getStaff: async (
       _: any,
@@ -245,12 +224,66 @@ export const resolvers = {
       _: any,
       { input }: any,
       { prisma, user }: myContext,
-    ) => {},
+    ) => {
+      if (!user) return null;
+
+      const cleanSearch = input.searchTerm?.trim();
+      const searchFilter = cleanSearch
+        ? {
+            OR: [
+              {
+                customer: {
+                  name: { contains: cleanSearch, mode: "insensitive" as const },
+                },
+              },
+              {
+                customer: {
+                  email: {
+                    contains: cleanSearch,
+                    mode: "insensitive" as const,
+                  },
+                },
+              },
+              {
+                customer: {
+                  phone: {
+                    contains: cleanSearch,
+                  },
+                },
+              },
+              {
+                notes: { contains: cleanSearch, mode: "insensitive" as const },
+              },
+            ],
+          }
+        : {};
+
+      return await prisma.appointment.findMany({
+        where: {
+          AND: [
+            user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
+            searchFilter,
+          ],
+        },
+        include: { customer: true, staff: true },
+      });
+    },
     getAppointment: async (
       _: any,
       { id }: { id: string },
       { prisma, user }: myContext,
-    ) => {},
+    ) => {
+      if (!user) return null;
+
+      const appointment = await prisma.appointment.findFirst({
+        where: {
+          id: id,
+          ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
+        },
+        include: { customer: true, staff: true },
+      });
+      return appointment;
+    },
 
     // dashboard istatistik
     getDashboardStats: async (_: any, __: any, { prisma, user }: myContext) => {
@@ -289,8 +322,8 @@ export const resolvers = {
       // Sadece kendi kliniğine ait son 3 müşteriyi, kayıt tarihine göre dizip getiriyoruz.
       return await prisma.customer.findMany({
         where: user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
-        orderBy: { createdAt: "desc" }, // En son eklenen en üstte! ✨
-        take: 3, // Sadece 3 tane yeterli, Luxe vizyonu kalabalık sevmez. 😉
+        orderBy: { createdAt: "desc" },
+        take: 3,
       });
     },
   },
@@ -744,20 +777,20 @@ export const resolvers = {
       try {
         const staff = await prisma.staff.findFirst({ where });
 
-        if (!staff) throw new Error("Staff not found or access denied.");
+        if (!staff) throw new Error("Staff not found or access denied");
 
-        return await prisma.staff.update({
+        const updatedStaff = await prisma.staff.update({
           where: { id: id },
           data: updateData,
         });
+
+        return updatedStaff;
       } catch (error: any) {
         if (error.code === "P2002") {
           throw new Error(
             "This email is already in use by another staff member.",
           );
         }
-        console.error("Update error:", error);
-        throw new Error("An error occurred during the update.");
       }
     },
 
@@ -766,16 +799,122 @@ export const resolvers = {
       _: any,
       { input }: any,
       { prisma, user }: myContext,
-    ) => {},
+    ) => {
+      if (!user) return null;
+
+      const { startTime, endTime, status } = input;
+
+      const targetTenantId =
+        user.role === "SUPER_ADMIN"
+          ? { tenantId: input.tenantId }
+          : { tenantId: user.tenantId };
+
+      if (!targetTenantId) {
+        throw new Error("Target tenant ID is required for this operation.");
+      }
+
+      const existingAppointment = await prisma.appointment.findFirst({
+        where: {
+          tenantId: targetTenantId,
+          staffId: input.staffId,
+          AND: [
+            { startTime: { lt: new Date(endTime) } }, // lt: les than $startTime < input.endTime$
+            { endTime: { gt: new Date(startTime) } }, // gt: greater than $endTime > input.startTime$
+          ],
+        },
+      });
+
+      if (existingAppointment)
+        throw new Error(
+          "The staff already have an appointment at these times.",
+        );
+
+      return await prisma.appointment.create({
+        data: {
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
+          status: status || "PENDING",
+          tenantId: targetTenantId,
+          customer: { connect: { id: input.customerId } },
+          staff: { connect: { id: input.staffId } },
+          notes: input.notes,
+        },
+      });
+    },
     deleteAppointment: async (
       _: any,
       { id }: any,
       { prisma, user }: myContext,
-    ) => {},
+    ) => {
+      if (!user) return null;
+
+      const where = {
+        id: id,
+        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+      };
+
+      try {
+        const deleted = await prisma.appointment.deleteMany({ where });
+
+        if (deleted.count === 0)
+          throw new Error(
+            "Appointment not found or you do not have permission.",
+          );
+
+        return { id };
+      } catch (err) {
+        console.error("Error deleting appointment:", err);
+        throw new Error("Failed to delete appointment.");
+      }
+    },
     updateAppointment: async (
       _: any,
       { id, input }: any,
       { prisma, user }: myContext,
-    ) => {},
+    ) => {
+      if (!user) return null;
+
+      const targetTenantId =
+        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+
+      const currentApp = await prisma.appointment.findFirst({
+        where: { id, tenantId: targetTenantId },
+      });
+
+      if (!currentApp)
+        throw new Error("Appointment not found or access denied.");
+
+      const { startTime, endTime, status, staffId } = input;
+      const updateData: any = {};
+      if (startTime !== undefined) updateData.startTime = new Date(startTime);
+      if (endTime !== undefined) updateData.endTime = new Date(endTime);
+      if (status !== undefined) updateData.status = status;
+
+      // çakışma kontrolü
+      if (startTime || endTime || staffId) {
+        const checkStart = updateData.startTime || currentApp.startTime;
+        const checkEnd = updateData.endTime || currentApp.endTime;
+        const checkStaff = updateData.staffId || currentApp.staffId;
+
+        const conflict = await prisma.appointment.findFirst({
+          where: {
+            tenantId: targetTenantId,
+            staffId: checkStaff,
+            id: { not: id },
+            AND: [
+              { startTime: { lt: checkEnd } },
+              { endTime: { gt: checkStart } },
+            ],
+          },
+        });
+
+        if (conflict) throw new Error("It clashes with another appointment.");
+
+        return await prisma.appointment.update({
+          where: { id },
+          data: updateData,
+        });
+      }
+    },
   },
 };
