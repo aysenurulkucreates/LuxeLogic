@@ -117,3 +117,43 @@ export const GET_RECENT_CUSTOMERS = gql`
     }
   }
 `;
+
+export const GET_MY_APPOINTMENTS = gql`
+  query GetMyAppointments($input: AppointmentFilterInput) {
+    myAppointments(input: $input) {
+      id
+      status
+      startTime
+      endTime
+      staff {
+        id
+        name
+      }
+      customer {
+        id
+        name
+      }
+      notes
+    }
+  }
+`;
+
+export const GET_APPOINTMENT = gql`
+  query GetAppointment($id: ID!) {
+    getAppointment(id: $id) {
+      id
+      status
+      startTime
+      endTime
+      staff {
+        id
+        name
+      }
+      customer {
+        id
+        name
+      }
+      notes
+    }
+  }
+`;

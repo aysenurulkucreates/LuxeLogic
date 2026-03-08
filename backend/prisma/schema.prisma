@@ -93,12 +93,13 @@ model Product {
 }
 
 model Appointment {
-  id             String   @id @default(uuid())
+  id              String   @id @default(uuid())
 
-  startTime      DateTime  
-  endTime        DateTime
+  startTime       DateTime  
+  endTime         DateTime
 
   status          AppointmentStatus    @default(PENDING)
+  notes           String?
 
 
   customerId      String

@@ -14,6 +14,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import ProfilePage from "./pages/Auth/Profile";
 import ProductList from "./pages/Dasboard/products/Products";
 import StaffList from "./pages/Dasboard/staff/StaffList";
+import AppointmentList from "./pages/Dasboard/appointments/AppointmentList";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/staff" element={<StaffList />} />
+          <Route path="/appointments" element={<AppointmentList />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>

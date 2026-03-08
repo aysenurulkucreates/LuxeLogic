@@ -33,19 +33,19 @@ type Mutation {
   updateUser(input: UpdateUserInput!): User!
 
   createCustomer(input: CreateCustomerInput! ): Customer!
-  deleteCustomer(id: ID!): DeleteResponse!
+  deleteCustomer(id: ID!): DeleteResponse
   updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer!
 
   createProduct(input: CreateProductInput! ): Product!
-  deleteProduct(id: ID!): DeleteResponse!
+  deleteProduct(id: ID!):DeleteResponse
   updateProduct(id: ID!, input: UpdateProductInput!): Product!
 
   createStaff(input: CreateStaffInput!): Staff!
-  deleteStaff(id: ID!): DeleteResponse!
+  deleteStaff(id: ID!): DeleteResponse
   updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
 
   createAppointment(input: CreateAppointmentInput!): Appointment!
-  deleteAppointment(id: ID!): DeleteResponse!
+  deleteAppointment(id: ID!): DeleteResponse
   updateAppointment(id: ID!, input: UpdateAppointmentInput!): Appointment!
 
 }
@@ -135,6 +135,7 @@ type Appointment {
   endTime: DateTime!
 
   status: AppointmentStatus!
+  notes: String
 
   customer: Customer!
   staff: Staff!
@@ -243,6 +244,7 @@ input CreateAppointmentInput {
 
   customerId: ID!
   staffId: ID!
+  tenantId: ID!
 
   notes: String
   status: AppointmentStatus!
@@ -254,6 +256,7 @@ input UpdateAppointmentInput {
 
   customerId: ID
   staffId: ID
+  tenantId: ID
 
   notes: String
   status: AppointmentStatus

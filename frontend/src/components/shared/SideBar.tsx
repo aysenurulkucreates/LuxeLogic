@@ -7,8 +7,10 @@ import {
   CircleUser,
   Package,
   SlidersHorizontal,
+  Contact,
+  CalendarClock,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth"; // Senin hook'un
+import { useAuth } from "../../hooks/useAuth";
 
 interface MenuItem {
   name: string;
@@ -47,7 +49,12 @@ const Sidebar: React.FC = () => {
     {
       name: "Staff",
       path: "/staff",
-      icon: Package,
+      icon: Contact,
+    },
+    {
+      name: "Appointments",
+      path: "/appointments",
+      icon: CalendarClock,
     },
   ];
 

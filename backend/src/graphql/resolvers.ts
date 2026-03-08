@@ -262,10 +262,19 @@ export const resolvers = {
         where: {
           AND: [
             user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
+            // Bir personel, arkadaşının randevusunu göremez!
+            user.role === "STAFF" ? { staffId: user.id } : {},
             searchFilter,
           ],
         },
-        include: { customer: true, staff: true },
+        orderBy: {
+          startTime: "asc",
+        },
+        include: {
+          customer: true,
+          staff: true,
+        },
+        take: 50,
       });
     },
     getAppointment: async (
@@ -802,12 +811,12 @@ export const resolvers = {
     ) => {
       if (!user) return null;
 
-      const { startTime, endTime, status } = input;
+      const { startTime, endTime, status, customerId, staffId } = input;
 
+      const rawTenantId =
+        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
       const targetTenantId =
-        user.role === "SUPER_ADMIN"
-          ? { tenantId: input.tenantId }
-          : { tenantId: user.tenantId };
+        typeof rawTenantId === "object" ? rawTenantId.id : rawTenantId;
 
       if (!targetTenantId) {
         throw new Error("Target tenant ID is required for this operation.");
@@ -834,10 +843,15 @@ export const resolvers = {
           startTime: new Date(startTime),
           endTime: new Date(endTime),
           status: status || "PENDING",
-          tenantId: targetTenantId,
+          notes: input.notes,
+          tenant: { connect: { id: targetTenantId } },
           customer: { connect: { id: input.customerId } },
           staff: { connect: { id: input.staffId } },
-          notes: input.notes,
+        },
+        include: {
+          staff: true,
+          customer: true,
+          tenant: true,
         },
       });
     },
@@ -857,14 +871,24 @@ export const resolvers = {
         const deleted = await prisma.appointment.deleteMany({ where });
 
         if (deleted.count === 0)
-          throw new Error(
-            "Appointment not found or you do not have permission.",
-          );
+          return {
+            success: false,
+            message: "Appointment not found or access denied.",
+            deletedId: null,
+          };
 
-        return { id };
+        return {
+          success: true,
+          message: "Appointment successfully deleted.",
+          deletedId: id,
+        };
       } catch (err) {
         console.error("Error deleting appointment:", err);
-        throw new Error("Failed to delete appointment.");
+        return {
+          success: false,
+          message: "Unexpected error occured.",
+          deletedId: null,
+        };
       }
     },
     updateAppointment: async (
@@ -884,11 +908,14 @@ export const resolvers = {
       if (!currentApp)
         throw new Error("Appointment not found or access denied.");
 
-      const { startTime, endTime, status, staffId } = input;
+      const { startTime, endTime, status, staffId, notes } = input;
       const updateData: any = {};
+
       if (startTime !== undefined) updateData.startTime = new Date(startTime);
       if (endTime !== undefined) updateData.endTime = new Date(endTime);
       if (status !== undefined) updateData.status = status;
+      if (notes !== undefined) updateData.notes = notes;
+      if (staffId !== undefined) updateData.staffId = staffId;
 
       // çakışma kontrolü
       if (startTime || endTime || staffId) {
@@ -911,8 +938,13 @@ export const resolvers = {
         if (conflict) throw new Error("It clashes with another appointment.");
 
         return await prisma.appointment.update({
-          where: { id },
+          where: { id: id },
           data: updateData,
+          include: {
+            staff: true,
+            customer: true,
+            tenant: true,
+          },
         });
       }
     },
