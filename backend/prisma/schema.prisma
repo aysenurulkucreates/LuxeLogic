@@ -32,7 +32,8 @@ model Tenant {
   product       Product[]
   staff         Staff[]
   appointment   Appointment[]
-}
+  sale          Sale[]
+} 
 
 model User {
   id            String   @id @default(uuid()) 
@@ -57,6 +58,8 @@ model Customer {
 
   createdAt  DateTime @default(now()) 
   updatedAt  DateTime @updatedAt
+
+  sale          Sale[]
 }
 
 model Staff {
@@ -83,13 +86,15 @@ model Product {
   tenantId   String
   name       String
   category   String
-  price      Float
+  price      Decimal  @default(0.0)
   stock      Int       @default(0)
 
   tenant     Tenant    @relation(fields: [tenantId], references: [id])
 
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  sale          Sale[]
 }
 
 model Appointment {
@@ -98,6 +103,7 @@ model Appointment {
   startTime       DateTime  
   endTime         DateTime
 
+  price           Decimal  @default(0.0)
   status          AppointmentStatus    @default(PENDING)
   notes           String?
 
@@ -113,4 +119,27 @@ model Appointment {
 
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+}
+
+model Sale {
+  id          String   @id @default(cuid())
+  
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  
+  
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  
+ 
+  quantity    Int      @default(1)
+  totalPrice  Float    
+ 
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId]) // performans için, binlerce satıl oldupunda sadece tenantId ye ait olanalrı geitirr.
 }

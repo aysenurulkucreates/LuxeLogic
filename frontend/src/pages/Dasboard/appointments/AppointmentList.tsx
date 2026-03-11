@@ -2,9 +2,10 @@ import { useMutation, useQuery } from "@apollo/client";
 import { useEffect, useState } from "react";
 import { GET_MY_APPOINTMENTS } from "../../../graphql/queries/auth";
 import { DELETE_APPOINTMENT } from "../../../graphql/mutations/appointments";
-import { CalendarClock, Search, Trash2, User } from "lucide-react";
+import { CalendarClock, Search, Trash2, User, Banknote } from "lucide-react"; // Banknote ikonunu ekledim 💸
 import AddAppointmentModal from "../../../components/shared/AddAppointmentModal";
 
+// --- INTERFACES (Pırlanta Tipler 💎) ---
 interface Staff {
   id: string;
   name: string;
@@ -26,6 +27,7 @@ interface Appointment {
   id: string;
   startTime: string;
   endTime: string;
+  price: number; // Burası artık mecburi pırlanta!
   status: string;
   notes?: string;
   customer: Customer;
@@ -40,7 +42,7 @@ const AppointmentList = () => {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  // --- SEARCH DEBOUNCE ---
+  // --- SEARCH DEBOUNCE (Sızıntı Önleyici 💉) ---
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
     return () => clearTimeout(timer);
@@ -52,7 +54,8 @@ const AppointmentList = () => {
     error: listError,
     data,
   } = useQuery(GET_MY_APPOINTMENTS, {
-    variables: { input: { searchTerm: debouncedSearchTerm } },
+    variables: { input: { searchTerm: debouncedSearchTerm || "" } },
+    fetchPolicy: "cache-and-network",
   });
 
   // --- MUTATIONS ---
@@ -61,10 +64,10 @@ const AppointmentList = () => {
     {
       refetchQueries: [{ query: GET_MY_APPOINTMENTS }],
       onCompleted: () => {
-        alert("Appointment successfully discharged from the system. 🚑");
+        alert("Operation successfully discharged from the system. 🚑");
       },
       onError: (err) => {
-        alert(`Appoinment could not be deleted: ${err.message}`);
+        alert(`Emergency! Could not delete: ${err.message}`);
       },
     },
   );
@@ -80,14 +83,11 @@ const AppointmentList = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (
-      window.confirm("Are you sure? This record will be permanently lost! 🚨")
-    ) {
+    if (window.confirm("Are you sure? This vital record will be lost! 🚨")) {
       await deleteAppointment({ variables: { id } });
     }
   };
 
-  // --- UI TRIAGE (LOADING/ERROR states) ---
   if (listLoading)
     return (
       <div className="flex justify-center items-center h-96">
@@ -98,17 +98,17 @@ const AppointmentList = () => {
   if (listError)
     return (
       <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100 mt-10 font-bold">
-        🚨 System Error: {listError.message}
+        🚨 System Crash: {listError.message}
       </div>
     );
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
-      {/* --- HEADER & SEARCH --- */}
+      {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-            Appointment
+            Appointment{" "}
             <span className="text-indigo-600">Operation Center</span>
           </h1>
           <p className="text-slate-500 font-medium">
@@ -119,7 +119,7 @@ const AppointmentList = () => {
         <div className="relative group w-full md:w-96">
           <input
             type="text"
-            placeholder="Search staff or appointment..."
+            placeholder="Search staff or patient..."
             className="pl-12 pr-6 py-4 bg-slate-50 border-none rounded-2xl w-full focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -130,12 +130,11 @@ const AppointmentList = () => {
         </div>
       </div>
 
-      {/* --- UNIFIED APPOINTMENT GRID --- */}
+      {/* --- GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {/* 1. New Appointment Button */}
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-indigo-50/50 border-2 border-dashed border-indigo-200 rounded-[2.5rem] p-10 flex flex-col items-center justify-center gap-4 hover:bg-indigo-50 hover:border-indigo-400 transition-all group min-h-75"
+          className="bg-indigo-50/50 border-2 border-dashed border-indigo-200 rounded-[2.5rem] p-10 flex flex-col items-center justify-center gap-4 hover:bg-indigo-50 hover:border-indigo-400 transition-all group min-h-100"
         >
           <div className="bg-white p-5 rounded-full shadow-md group-hover:scale-110 transition-transform duration-300">
             <CalendarClock className="text-indigo-600 w-10 h-10" />
@@ -150,13 +149,11 @@ const AppointmentList = () => {
           </div>
         </button>
 
-        {/* 2. Map Appointments */}
         {data?.myAppointments?.map((app: Appointment) => (
           <div
             key={app.id}
-            className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group flex flex-col justify-between min-h-75"
+            className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group flex flex-col justify-between min-h-100"
           >
-            {/* Status Badge */}
             <div className="absolute top-6 right-6">
               <span
                 className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -173,7 +170,7 @@ const AppointmentList = () => {
               <div className="flex items-center gap-3 text-indigo-600 font-bold bg-indigo-50 w-fit px-4 py-2 rounded-xl">
                 <CalendarClock size={20} />
                 <span className="text-sm">
-                  {new Date(app.startTime).toLocaleDateString()} @
+                  {new Date(app.startTime).toLocaleDateString()} @{" "}
                   {new Date(app.startTime).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -190,6 +187,7 @@ const AppointmentList = () => {
                 </h3>
               </div>
 
+              {/* STAFF INFO */}
               <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
                 <div className="bg-white p-2 rounded-lg shadow-sm">
                   <User size={18} className="text-indigo-500" />
@@ -203,9 +201,24 @@ const AppointmentList = () => {
                   </p>
                 </div>
               </div>
+
+              {/* 💸 PRICE BADGE */}
+              <div className="flex items-center justify-between p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
+                <div className="flex items-center gap-2">
+                  <Banknote size={16} className="text-emerald-600" />
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                    Fee
+                  </span>
+                </div>
+                <span className="text-xl font-black text-emerald-700">
+                  {new Intl.NumberFormat("tr-TR", {
+                    style: "currency",
+                    currency: "TRY",
+                  }).format(app.price || 0)}
+                </span>
+              </div>
             </div>
 
-            {/* Actions */}
             <div className="pt-6 flex gap-3">
               <button
                 onClick={() => handleEdit(app)}
@@ -229,7 +242,7 @@ const AppointmentList = () => {
       {data?.myAppointments?.length === 0 && (
         <div className="text-center py-32 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-200">
           <p className="text-slate-400 font-bold text-xl italic">
-            No operations found.✨
+            No operations found in queue.✨
           </p>
         </div>
       )}
@@ -244,4 +257,5 @@ const AppointmentList = () => {
     </div>
   );
 };
+
 export default AppointmentList;

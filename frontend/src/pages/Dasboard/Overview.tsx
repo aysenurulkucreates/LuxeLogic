@@ -15,6 +15,7 @@ import {
   Activity,
   Boxes,
   User,
+  Banknote,
 } from "lucide-react";
 
 interface Customer {
@@ -35,10 +36,17 @@ const Overview: React.FC = () => {
   const { data: recentData, loading: recentLoading } =
     useQuery(GET_RECENT_CUSTOMERS);
 
+  // 💵 GLOBAL DOLLAR FORMATTER (Pırlanta Dikiş 💎)
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(value || 0);
+  };
+
   if (loading || statsLoading || recentLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        {/* 🏥 O meşhur LuxeLogic animasyonumuz */}
         <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
         <p className="text-slate-400 font-black tracking-widest uppercase text-[10px] animate-pulse">
           LuxeLogic Statistics Initializing...
@@ -60,11 +68,11 @@ const Overview: React.FC = () => {
           <p className="text-rose-600/70 font-medium">
             {error?.message ||
               statsError?.message ||
-              "An unexpected error occurred while fetching clinic data."}
+              "An unexpected error occurred."}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-6 px-8 py-3 bg-rose-600 text-white rounded-2xl font-black shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
+            className="mt-6 px-8 py-3 bg-rose-600 text-white rounded-2xl font-black shadow-lg"
           >
             Restart System
           </button>
@@ -73,32 +81,80 @@ const Overview: React.FC = () => {
     );
   }
 
-  if (!data?.me)
-    return (
-      <div className="p-8 text-slate-500 font-bold">
-        Please login to access the clinic dashboard.
-      </div>
-    );
-
-  const userName = data.me.email.split("@")[0];
+  const userName = data?.me?.email.split("@")[0] || "Admin";
+  const stats = statsData?.getDashboardStats;
 
   return (
     <div className="p-10 max-w-7xl mx-auto animate-in fade-in duration-700">
-      {/* 🌟 Karşılanma (Welcome) */}
-      <div className="mb-12">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-          Welcome, <span className="text-indigo-600">{userName}</span>! 👋
-        </h1>
-        <p className="text-slate-500 font-medium mt-2">
-          Here's what's happening at your clinic today.
-        </p>
+      {/* 🌟 Welcome Section */}
+      <div className="mb-12 flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+            Welcome, <span className="text-indigo-600">{userName}</span>! 👋
+          </h1>
+          <p className="text-slate-500 font-medium mt-2">
+            Here's what's happening at your clinic today.
+          </p>
+        </div>
+
+        {/* 💵 TOTAL REVENUE BADGE ($) */}
+        <div className="hidden lg:flex items-center gap-4 bg-emerald-600 p-4 rounded-3xl text-white shadow-xl shadow-emerald-100/50">
+          <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+            <Banknote size={24} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest leading-none mb-1">
+              Total Revenue
+            </p>
+            <p className="text-2xl font-black leading-none">
+              {formatCurrency(stats?.totalRevenue)}
+            </p>
+          </div>
+        </div>
       </div>
-      {/* 📊 Üst İstatistik Kartları (The Luxe Quads) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-        {/* Kart 1: Customers */}
-        <div className="bg-white p-7 rounded-rounded4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-indigo-200 transition-all">
+
+      {/* 📊 THE COMPLETE STATS GRID (Her şey senin etiketlerinle pırlanta gibi! 💎) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        {/* 1. Appointment Revenue ($) */}
+        <div className="bg-white p-7 rounded-rounded4xl shadow-xl border border-slate-100 group hover:border-purple-200 transition-all">
           <div className="flex items-center justify-between mb-6">
-            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Banknote size={24} />
+            </div>
+            <span className="text-purple-500 text-[10px] font-black uppercase bg-purple-50 px-2 py-1 rounded-lg">
+              Revenue
+            </span>
+          </div>
+          <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
+            Appointment Revenue
+          </h3>
+          <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
+            {formatCurrency(stats?.appointmentRevenue)}
+          </p>
+        </div>
+
+        {/* 2. Product Revenue ($) */}
+        <div className="bg-white p-7 rounded-rounded4xl shadow-xl border border-slate-100 group hover:border-emerald-200 transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Banknote size={24} />
+            </div>
+            <span className="text-emerald-500 text-[10px] font-black uppercase bg-emerald-50 px-2 py-1 rounded-lg">
+              Revenue
+            </span>
+          </div>
+          <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
+            Product Revenue
+          </h3>
+          <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
+            {formatCurrency(stats?.productRevenue)}
+          </p>
+        </div>
+
+        {/* 3. Total Customers (SENİN ETİKETİN ✅) */}
+        <div className="bg-white p-7 rounded-rounded4xl shadow-xl border border-slate-100 group hover:border-indigo-200 transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
               <Users size={24} />
             </div>
             <span className="flex items-center gap-1 text-emerald-500 text-xs font-black bg-emerald-50 px-2 py-1 rounded-lg">
@@ -109,30 +165,32 @@ const Overview: React.FC = () => {
             Total Customers
           </h3>
           <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
-            {statsData?.getDashboardStats?.customerCount || 0}
+            {stats?.customerCount || 0}
           </p>
         </div>
-        {/* Kart 2: Appointments */}
-        <div className="bg-white p-7 rounded-rounded4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-purple-200 transition-all">
+
+        {/* 4. Appointments (SENİN ETİKETİN ✅) */}
+        <div className="bg-white p-7 rounded-rounded4xl shadow-xl border border-slate-100 group hover:border-purple-200 transition-all">
           <div className="flex items-center justify-between mb-6">
-            <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl">
               <Calendar size={24} />
             </div>
             <span className="text-purple-500 text-[10px] font-black uppercase bg-purple-50 px-2 py-1 rounded-lg tracking-tighter">
-              Today
+              Total
             </span>
           </div>
           <h3 className="text-slate-400 text-xs font-black uppercase tracking-widest">
             Appointments
           </h3>
           <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
-            {statsData?.getDashboardStats?.appointmentCount || 0}
+            {stats?.appointmentCount || 0}
           </p>
         </div>
-        {/* Kart 3: Active Staff */}
-        <div className="bg-white p-7 rounded-rounded4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-blue-200 transition-all">
+
+        {/* 5. Active Staff (SENİN ETİKETİN ✅) */}
+        <div className="bg-white p-7 rounded-rounded4xl shadow-xl border border-slate-100 group hover:border-blue-200 transition-all">
           <div className="flex items-center justify-between mb-6">
-            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
               <Briefcase size={24} />
             </div>
             <span className="text-blue-500 text-[10px] font-black uppercase bg-blue-50 px-2 py-1 rounded-lg tracking-tighter">
@@ -143,13 +201,14 @@ const Overview: React.FC = () => {
             Active Staff
           </h3>
           <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
-            {statsData?.getDashboardStats?.staffCount || 0}
+            {stats?.staffCount || 0}
           </p>
         </div>
-        {/* Kart 4: Inventory (Products) */}
-        <div className="bg-white p-7 rounded-rounded4xl shadow-xl shadow-slate-200/50 border border-slate-100 group hover:border-emerald-200 transition-all">
+
+        {/* 6. Total Products (SENİN ETİKETİN ✅) */}
+        <div className="bg-white p-7 rounded-rounded4xl shadow-xl border border-slate-100 group hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-6">
-            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl">
               <Boxes size={24} />
             </div>
             <span className="text-emerald-500 text-[10px] font-black uppercase bg-emerald-50 px-2 py-1 rounded-lg tracking-tighter">
@@ -160,14 +219,14 @@ const Overview: React.FC = () => {
             Total Products
           </h3>
           <p className="text-3xl font-black text-slate-900 mt-1 tracking-tighter">
-            {statsData?.getDashboardStats?.productCount || 0}
+            {stats?.productCount || 0}
           </p>
         </div>
       </div>
-      {/* 🏗️ Alt Panels */}
+
+      {/* 🏗️ BOTTOM PANELS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* 📋 Son İşlemler (Recent Activity) */}
-        <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-50">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-50">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
               Recent Activity
@@ -176,7 +235,6 @@ const Overview: React.FC = () => {
               View All Report
             </button>
           </div>
-
           <div className="space-y-6">
             {recentData?.getRecentCustomers?.map((customer: Customer) => (
               <div
@@ -191,9 +249,6 @@ const Overview: React.FC = () => {
                     <p className="font-bold text-slate-800 text-lg">
                       {customer.name}
                     </p>
-                    <p className="font-bold text-slate-800 text-lg">
-                      {customer.email}
-                    </p>
                     <p className="text-sm text-slate-400 font-medium tracking-tight">
                       System registration completed successfully.
                     </p>
@@ -207,30 +262,40 @@ const Overview: React.FC = () => {
           </div>
         </div>
 
-        {/* 🚀 Hızlı Aksiyon Kartı (Fast Action) */}
-        <div className="bg-linear-to-br from-indigo-600 to-violet-700 p-10 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200 flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+        <div className="h-fit lg:sticky lg:top-10 bg-linear-to-br from-indigo-600 to-violet-800 p-9 rounded-[2.5rem] text-white shadow-[0_20px_50px_rgba(79,70,229,0.2)] relative overflow-hidden group">
+          {/* Glassmorphism Background Decoration */}
+          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700" />
+
           <div className="relative z-10">
-            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-8 backdrop-blur-md">
-              <Plus size={28} />
+            {/* Icon Container */}
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-8 backdrop-blur-md border border-white/20 shadow-inner">
+              <Plus size={32} strokeWidth={2.5} />
             </div>
-            <h2 className="text-3xl font-black mb-4 tracking-tighter">
-              Fast Action
-            </h2>
-            <p className="text-indigo-100 font-medium leading-relaxed">
-              Streamline your workflow by initiating a new customer registration
-              immediately.
-            </p>
+
+            <div className="mb-8">
+              <h2 className="text-2xl font-black mb-2 tracking-tighter leading-tight">
+                Fast Action
+              </h2>
+              <p className="text-indigo-100 text-sm font-bold uppercase tracking-widest opacity-80">
+                Register customer
+              </p>
+              <p className="text-indigo-50 text-xs font-medium leading-relaxed mt-3 opacity-70">
+                Streamline your workflow by initiating a new customer
+                registration immediately.
+              </p>
+            </div>
+
+            {/* CTA Button */}
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="w-full bg-white text-indigo-700 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 relative z-10"
+            >
+              Add New Customer
+            </button>
           </div>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-full bg-white text-indigo-600 py-5 rounded-3xl font-black text-lg shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 mt-10 relative z-10"
-          >
-            Create New Profile
-          </button>
         </div>
       </div>
-      {/* Modal */}
+
       <AddCustomerModal
         key={isAddModalOpen ? "open" : "closed"}
         isOpen={isAddModalOpen}

@@ -20,8 +20,13 @@ type Query {
   myAppointments(input: AppointmentFilterInput): [Appointment!]!
   getAppointment(id: ID!): Appointment 
 
+  mySales(searchTerm: String): [Sale!]!
+  getSale(id: ID!): Sale
+
   getDashboardStats: DashboardStats
   getRecentCustomers: [Customer]!
+
+
 
 }
 
@@ -47,6 +52,9 @@ type Mutation {
   createAppointment(input: CreateAppointmentInput!): Appointment!
   deleteAppointment(id: ID!): DeleteResponse
   updateAppointment(id: ID!, input: UpdateAppointmentInput!): Appointment!
+
+  createSale(input: CreateSaleInput!): Sale!
+  deleteSale(id: ID!): DeleteResponse
 
 }
 
@@ -134,12 +142,26 @@ type Appointment {
   startTime: DateTime!
   endTime: DateTime!
 
+  price: Float!
   status: AppointmentStatus!
   notes: String
 
   customer: Customer!
   staff: Staff!
   tenant: Tenant!
+ }
+
+ type Sale {
+  id: ID!
+
+  quantity: Int!
+  totalPrice: Float!
+
+  product: Product!
+  customer: Customer
+  tenant: Tenant!
+
+  createdAt: DateTime!
  }
 
 type AuthPayload {
@@ -152,6 +174,10 @@ type DashboardStats {
   staffCount: Int
   productCount: Int
   appointmentCount: Int
+
+  totalRevenue: Float
+  appointmentRevenue: Float
+  productRevenue: Float
 }
 
 type DeleteResponse {
@@ -241,11 +267,12 @@ input AppointmentFilterInput {
 input CreateAppointmentInput {
   startTime: DateTime!
   endTime: DateTime!
-
+  
   customerId: ID!
   staffId: ID!
   tenantId: ID!
 
+  price: Float!
   notes: String
   status: AppointmentStatus!
 }
@@ -258,8 +285,17 @@ input UpdateAppointmentInput {
   staffId: ID
   tenantId: ID
 
+  price: Float
   notes: String
   status: AppointmentStatus
+}
+
+input CreateSaleInput {
+  quantity: Int!
+  totalPrice: Float!
+
+  customerId: ID
+  productId: ID!
 }
 
 `;

@@ -222,7 +222,7 @@ export const resolvers = {
     //appointments
     myAppointments: async (
       _: any,
-      { input }: any,
+      { input = {} }: any,
       { prisma, user }: myContext,
     ) => {
       if (!user) return null;
@@ -294,27 +294,110 @@ export const resolvers = {
       return appointment;
     },
 
+    // sales
+    mySales: async (
+      _: any,
+      { searchTerm }: any,
+      { prisma, user }: myContext,
+    ) => {
+      if (!user) return null;
+
+      const cleanSearch = searchTerm?.trim();
+      const searchFilter = cleanSearch
+        ? {
+            OR: [
+              {
+                product: {
+                  name: { contains: cleanSearch, mode: "insensitive" as const },
+                },
+              },
+              {
+                customer: {
+                  name: { contains: cleanSearch, mode: "insensitive" as const },
+                },
+              },
+            ],
+          }
+        : {};
+
+      return await prisma.sale.findMany({
+        where: {
+          ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
+          ...searchFilter,
+        },
+        include: {
+          product: true,
+          customer: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+    getSale: async (
+      _: any,
+      { id }: { id: string },
+      { prisma, user }: myContext,
+    ) => {
+      if (!user) return null;
+
+      const sale = await prisma.sale.findFirst({
+        where: {
+          id: id,
+          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+        },
+        include: {
+          product: true,
+          customer: true,
+        },
+      });
+      return sale;
+    },
+
     // dashboard istatistik
     getDashboardStats: async (_: any, __: any, { prisma, user }: myContext) => {
       if (!user) throw new Error("Unauthorized. Please login first.");
 
       const tenantId = user.tenantId;
       const isAdmin = user.role === "SUPER_ADMIN";
-
       const whereFilter = isAdmin ? {} : { tenantId };
 
       try {
-        const [customers, staff, products] = await Promise.all([
+        // 1. ADIM: Tüm verileri tek bir "Major Operasyon" (Promise.all) ile çekiyoruz 💉
+        const [
+          customers,
+          staff,
+          products,
+          appointments,
+          appointmentSum, // Yeni dikiş: Randevu toplamı ✅
+        ] = await Promise.all([
           prisma.customer.count({ where: whereFilter }),
           prisma.staff.count({ where: whereFilter }),
           prisma.product.count({ where: whereFilter }),
+          prisma.appointment.count({ where: whereFilter }),
+
+          // 💎 AGGREGATION DİKİŞİ: Fiyatları topla 💎
+          prisma.appointment.aggregate({
+            _sum: { price: true }, // price alanlarını topla
+            where: {
+              ...whereFilter,
+              status: "COMPLETED", // Sadece "Biten" operasyonların parasını sayalım! ✅
+            },
+          }),
         ]);
+
+        // 2. ADIM: Veriyi temizle (Null kontrolü) 🩺
+        // Eğer hiç randevu yoksa null dönebilir, onu 0'a çekelim ki sistem crash olmasın.
+        const totalAppRevenue = Number(appointmentSum._sum?.price) || 0;
 
         return {
           customerCount: customers,
           staffCount: staff,
           productCount: products,
-          appointmentCount: 0,
+          appointmentCount: appointments,
+
+          // 💎 FRONTEND'E GİDECEK YENİ VERİLER 💎
+          appointmentRevenue: totalAppRevenue,
+          totalRevenue: totalAppRevenue, // Şimdilik sadece randevuları sayıyoruz,
+          productRevenue: 0,
         };
       } catch (error) {
         console.error("Dashboard Stats Error:", error);
@@ -811,7 +894,7 @@ export const resolvers = {
     ) => {
       if (!user) return null;
 
-      const { startTime, endTime, status, customerId, staffId } = input;
+      const { startTime, endTime, status, price, customerId, staffId } = input;
 
       const rawTenantId =
         user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
@@ -842,6 +925,7 @@ export const resolvers = {
         data: {
           startTime: new Date(startTime),
           endTime: new Date(endTime),
+          price: input.price,
           status: status || "PENDING",
           notes: input.notes,
           tenant: { connect: { id: targetTenantId } },
@@ -908,30 +992,34 @@ export const resolvers = {
       if (!currentApp)
         throw new Error("Appointment not found or access denied.");
 
-      const { startTime, endTime, status, staffId, notes } = input;
+      const { startTime, endTime, status, staffId, customerId, notes, price } =
+        input;
       const updateData: any = {};
 
       if (startTime !== undefined) updateData.startTime = new Date(startTime);
       if (endTime !== undefined) updateData.endTime = new Date(endTime);
+      if (price !== undefined) updateData.price = price;
       if (status !== undefined) updateData.status = status;
       if (notes !== undefined) updateData.notes = notes;
       if (staffId !== undefined) updateData.staffId = staffId;
+      if (customerId !== undefined) updateData.customerId = customerId;
 
       // çakışma kontrolü
       if (startTime || endTime || staffId) {
         const checkStart = updateData.startTime || currentApp.startTime;
         const checkEnd = updateData.endTime || currentApp.endTime;
         const checkStaff = updateData.staffId || currentApp.staffId;
+        const checkCustomer = updateData.customerId || currentApp.customerId;
 
         const conflict = await prisma.appointment.findFirst({
           where: {
             tenantId: targetTenantId,
-            staffId: checkStaff,
             id: { not: id },
             AND: [
               { startTime: { lt: checkEnd } },
               { endTime: { gt: checkStart } },
             ],
+            OR: [{ staffId: checkStaff }, { customerId: checkCustomer }],
           },
         });
 
@@ -948,5 +1036,13 @@ export const resolvers = {
         });
       }
     },
+
+    // sales
+    createSale: async (
+      _: any,
+      { input }: any,
+      { prisma, user }: myContext,
+    ) => {},
+    deleteSale: async (_: any, { id }: any, { prisma, user }: myContext) => {},
   },
 };

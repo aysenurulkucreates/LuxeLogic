@@ -18,6 +18,7 @@ export const CREATE_APPOINTMENT = gql`
         id
         name
       }
+      price
       notes
       status
     }
@@ -40,6 +41,7 @@ export const UPDATE_APPOINTMENT = gql`
       id
       startTime
       endTime
+      price
       status
       notes
       staff {

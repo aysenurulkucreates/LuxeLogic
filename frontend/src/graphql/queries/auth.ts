@@ -102,6 +102,9 @@ export const GET_DASHBOARD_STATS = gql`
       staffCount
       productCount
       appointmentCount
+      totalRevenue
+      appointmentRevenue
+      productRevenue
     }
   }
 `;
@@ -134,6 +137,7 @@ export const GET_MY_APPOINTMENTS = gql`
         name
       }
       notes
+      price
     }
   }
 `;
@@ -154,6 +158,7 @@ export const GET_APPOINTMENT = gql`
         name
       }
       notes
+      price
     }
   }
 `;
