@@ -15,6 +15,7 @@ import ProfilePage from "./pages/Auth/Profile";
 import ProductList from "./pages/Dasboard/products/Products";
 import StaffList from "./pages/Dasboard/staff/StaffList";
 import AppointmentList from "./pages/Dasboard/appointments/AppointmentList";
+import SaleList from "./pages/Dasboard/sales/SaleList";
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
           <Route path="/products" element={<ProductList />} />
           <Route path="/staff" element={<StaffList />} />
           <Route path="/appointments" element={<AppointmentList />} />
+          <Route path="/sales" element={<SaleList />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>

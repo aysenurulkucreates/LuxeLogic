@@ -162,3 +162,22 @@ export const GET_APPOINTMENT = gql`
     }
   }
 `;
+
+export const GET_MY_SALES = gql`
+  query MySales($searchTerm: String) {
+    mySales(searchTerm: $searchTerm) {
+      id
+      quantity
+      totalPrice
+      createdAt
+      customer {
+        id
+        name
+      }
+      product {
+        id
+        name
+      }
+    }
+  }
+`;

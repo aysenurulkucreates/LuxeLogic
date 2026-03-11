@@ -64,7 +64,7 @@ const AppointmentList = () => {
     {
       refetchQueries: [{ query: GET_MY_APPOINTMENTS }],
       onCompleted: () => {
-        alert("Operation successfully discharged from the system. 🚑");
+        alert("Operation successfully discharged from the system. ");
       },
       onError: (err) => {
         alert(`Emergency! Could not delete: ${err.message}`);

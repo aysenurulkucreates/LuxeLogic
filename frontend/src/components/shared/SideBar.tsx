@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   Contact,
   CalendarClock,
+  HandCoins,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -55,6 +56,11 @@ const Sidebar: React.FC = () => {
       name: "Appointments",
       path: "/appointments",
       icon: CalendarClock,
+    },
+    {
+      name: "Sales",
+      path: "/sales",
+      icon: HandCoins,
     },
   ];
 

@@ -1038,11 +1038,120 @@ export const resolvers = {
     },
 
     // sales
-    createSale: async (
+    createSale: async (_: any, { input }: any, { prisma, user }: myContext) => {
+      if (!user) throw new Error("Authentication required.");
+
+      const { quantity, totalPrice, customerId, productId } = input;
+
+      const targetTenantId =
+        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+
+      if (!targetTenantId)
+        throw new Error("Target tenant ID is required for this operation.");
+
+      // 🏥 TRANSACTION OPERASYONU
+      try {
+        return await prisma.$transaction(async (tx: any) => {
+          // A. Ürünü bul ve stok kontrolü yap
+          const product = await tx.product.findUnique({
+            where: { id: productId },
+          });
+
+          if (!product) throw new Error("Product not found in inventory!");
+
+          if (product.stock < quantity) {
+            throw new Error(
+              `Insufficient stock! Only ${product.stock} left in storage.`,
+            );
+          }
+
+          // B. Satışı oluştur
+          const newSale = await tx.sale.create({
+            data: {
+              quantity,
+              totalPrice,
+              customerId,
+              productId,
+              tenantId: targetTenantId,
+            },
+            include: { product: true, customer: true },
+          });
+
+          // C. STOKTAN OTOMATİK DÜŞ
+          await tx.product.update({
+            where: { id: productId },
+            data: {
+              stock: {
+                decrement: quantity, // Stoğu miktar kadar tıkır tıkır düşürür ✅
+              },
+            },
+          });
+
+          return newSale;
+        });
+      } catch (error: any) {
+        throw new Error(
+          error.message ||
+            "An unexpected error occurred during the sale operation.",
+        );
+      }
+    },
+    deleteSale: async (
       _: any,
-      { input }: any,
+      { id }: { id: string },
       { prisma, user }: myContext,
-    ) => {},
-    deleteSale: async (_: any, { id }: any, { prisma, user }: myContext) => {},
+    ) => {
+      if (!user) throw new Error("Authentication required.");
+
+      // Silinecek satışı bulmamız lazım!
+      // Neden? Çünkü hangi üründen kaç tane satıldığını bilmeden stoğu iade edemeyiz.
+      const saleToDelete = await prisma.sale.findUnique({
+        where: { id },
+        include: { product: true }, // Ürün bilgisini de yanına alıyoruz
+      });
+
+      if (!saleToDelete) throw new Error("Sale record not found!");
+
+      // 💎 Güvenlik: Başkasının satışını silemesin (Super Admin değilse)
+      if (
+        user.role !== "SUPER_ADMIN" &&
+        saleToDelete.tenantId !== user.tenantId
+      ) {
+        throw new Error("You are not authorized to cancel this sale!");
+      }
+
+      try {
+        // 💉 TRANSACTION: Ya satış silinir ve stok artar, ya da hiçbir şey olmaz!
+        return await prisma.$transaction(async (tx: any) => {
+          // A. Satışı veritabanından siliyoruz
+          await tx.sale.delete({
+            where: { id },
+          });
+
+          // B. STOKLARI GERİ İADE ET
+          // Müşterinin aldığı miktarı (quantity) ürünün stoğuna geri ekliyoruz.
+          await tx.product.update({
+            where: { id: saleToDelete.productId },
+            data: {
+              stock: {
+                increment: saleToDelete.quantity, // Stoğu miktar kadar ARTIRIR ✅
+              },
+            },
+          });
+
+          // C. DeleteResponse Tipinde Cevap Dönüyoruz
+          return {
+            id: saleToDelete.id,
+            success: true,
+            message: `Sale cancelled successfully. ${saleToDelete.quantity} items returned to stock.`,
+          };
+        });
+      } catch (error: any) {
+        throw new Error(
+          error.message ||
+            "An unexpected error occurred during sale cancellation.",
+        );
+      }
+    },
   },
 };
