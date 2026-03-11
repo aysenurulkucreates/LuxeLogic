@@ -178,8 +178,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 required
               >
                 <option value="">Choose product...</option>
-                {/* 🚨 Backend isimlendirmene göre 'myProduct' veya 'myProducts' kontrol et */}
-                {productData?.myProduct?.map((p: Product) => (
+
+                {productData?.myProducts?.map((p: Product) => (
                   <option key={p.id} value={p.id}>
                     {p.name} (Stock: {p.stock})
                   </option>

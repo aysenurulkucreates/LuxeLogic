@@ -361,32 +361,38 @@ export const resolvers = {
       const whereFilter = isAdmin ? {} : { tenantId };
 
       try {
-        // 1. ADIM: Tüm verileri tek bir "Major Operasyon" (Promise.all) ile çekiyoruz 💉
         const [
           customers,
           staff,
           products,
           appointments,
-          appointmentSum, // Yeni dikiş: Randevu toplamı ✅
+          appointmentSum,
+          salesCount,
+          salesSum,
         ] = await Promise.all([
           prisma.customer.count({ where: whereFilter }),
           prisma.staff.count({ where: whereFilter }),
           prisma.product.count({ where: whereFilter }),
           prisma.appointment.count({ where: whereFilter }),
 
-          // 💎 AGGREGATION DİKİŞİ: Fiyatları topla 💎
           prisma.appointment.aggregate({
-            _sum: { price: true }, // price alanlarını topla
-            where: {
-              ...whereFilter,
-              status: "COMPLETED", // Sadece "Biten" operasyonların parasını sayalım! ✅
-            },
+            _sum: { price: true },
+            where: { ...whereFilter, status: "COMPLETED" },
+          }),
+
+          // 💉 SATIŞ ADEDİ DİKİŞİ
+          prisma.sale.count({ where: whereFilter }),
+
+          // 💎 SATIŞ GELİRİ DİKİŞİ (Sales Revenue) 💎
+          prisma.sale.aggregate({
+            _sum: { totalPrice: true },
+            where: whereFilter,
           }),
         ]);
 
-        // 2. ADIM: Veriyi temizle (Null kontrolü) 🩺
-        // Eğer hiç randevu yoksa null dönebilir, onu 0'a çekelim ki sistem crash olmasın.
+        // 2. ADIM: Veriyi temizle (NaN/Null korumalı) 🩺
         const totalAppRevenue = Number(appointmentSum._sum?.price) || 0;
+        const totalProductRevenue = Number(salesSum._sum?.totalPrice) || 0; // 💉 Satış cirosu
 
         return {
           customerCount: customers,
@@ -394,10 +400,13 @@ export const resolvers = {
           productCount: products,
           appointmentCount: appointments,
 
-          // 💎 FRONTEND'E GİDECEK YENİ VERİLER 💎
+          // 💎 FRONTEND'E GİDEN GELİŞMİŞ VERİLER 💎
           appointmentRevenue: totalAppRevenue,
-          totalRevenue: totalAppRevenue, // Şimdilik sadece randevuları sayıyoruz,
-          productRevenue: 0,
+          productRevenue: totalProductRevenue, // Artık 0 değil, pırlanta gibi dolu! ✅
+          totalRevenue: totalAppRevenue + totalProductRevenue, // Toplam Klinik Cirosu 💰
+
+          // İstersen satış adedini de dönebilirsin
+          salesCount: salesCount,
         };
       } catch (error) {
         console.error("Dashboard Stats Error:", error);
@@ -1036,6 +1045,19 @@ export const resolvers = {
         });
       }
     },
+    updateAppointmentStatus: async (
+      _: any,
+      { id, status }: any,
+      { prisma, user }: myContext,
+    ) => {
+      if (!user) throw new Error("Authenticated required!");
+
+      return await prisma.appointment.update({
+        where: { id },
+        data: { status },
+        include: { customer: true, staff: true },
+      });
+    },
 
     // sales
     createSale: async (_: any, { input }: any, { prisma, user }: myContext) => {
@@ -1074,7 +1096,7 @@ export const resolvers = {
               productId,
               tenantId: targetTenantId,
             },
-            include: { product: true, customer: true },
+            include: { product: true, customer: true, tenant: true },
           });
 
           // C. STOKTAN OTOMATİK DÜŞ

@@ -52,6 +52,7 @@ type Mutation {
   createAppointment(input: CreateAppointmentInput!): Appointment!
   deleteAppointment(id: ID!): DeleteResponse
   updateAppointment(id: ID!, input: UpdateAppointmentInput!): Appointment!
+  updateAppointmentStatus(id: ID!, status: AppointmentStatus!): Appointment!
 
   createSale(input: CreateSaleInput!): Sale!
   deleteSale(id: ID!): DeleteResponse

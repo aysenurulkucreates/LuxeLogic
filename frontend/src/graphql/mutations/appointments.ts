@@ -59,3 +59,12 @@ export const UPDATE_APPOINTMENT = gql`
     }
   }
 `;
+
+export const UPDATE_APPOINTMENT_STATUS = gql`
+  mutation UpdateAppointmentStatus($id: ID!, $status: AppointmentStatus!) {
+    updateAppointmentStatus(id: $id, status: $status) {
+      id
+      status
+    }
+  }
+`;
