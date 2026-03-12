@@ -156,6 +156,8 @@ export const GET_APPOINTMENT = gql`
       customer {
         id
         name
+        email
+        phone
       }
       notes
       price

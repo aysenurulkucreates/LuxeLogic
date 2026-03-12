@@ -723,7 +723,11 @@ export const resolvers = {
         if (deleted.count === 0)
           throw new Error("Product not found or you do not have permission.");
 
-        return { id };
+        return {
+          deletedId: id,
+          success: true,
+          message: "Product successfully deleted.",
+        };
       } catch (err) {
         console.error("Error deleting product:", err);
         throw new Error("Failed to delete product.");

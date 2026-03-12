@@ -17,8 +17,6 @@ const CustomerDetailPage = () => {
     fetchPolicy: "network-only",
   });
 
-  // 🩺 İŞTE KRİTİK DİKİŞ BURADA!
-  // Senin sorgun 'getCustomer' döndüğü için burayı 'data.getCustomer' yaptık! 💉
   const customer = data?.getCustomer;
 
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
@@ -38,7 +36,6 @@ const CustomerDetailPage = () => {
       </div>
     );
 
-  // 🚨 Eğer hala No Patient diyorsa ID'de sorun vardır
   if (!customer) {
     return (
       <div className="p-20 text-center">

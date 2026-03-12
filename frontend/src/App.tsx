@@ -17,6 +17,7 @@ import StaffList from "./pages/Dasboard/staff/StaffList";
 import AppointmentList from "./pages/Dasboard/appointments/AppointmentList";
 import SaleList from "./pages/Dasboard/sales/SaleList";
 import CustomerDetailPage from "./pages/Dasboard/customers/[id]";
+import AppointmentDetailPage from "./pages/Dasboard/appointments/[id]";
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
           <Route path="/products" element={<ProductList />} />
           <Route path="/staff" element={<StaffList />} />
           <Route path="/appointments" element={<AppointmentList />} />
+          <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
           <Route path="/sales" element={<SaleList />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>

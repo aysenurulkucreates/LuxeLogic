@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import AddAppointmentModal from "../../../components/shared/AddAppointmentModal";
+import { Link } from "react-router-dom";
 
 // --- INTERFACES (Pırlanta Tipler) ---
 interface Staff {
@@ -153,7 +154,7 @@ const AppointmentList = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 text-left">
-      {/* --- HEADER --- */}
+      {/* --- 🩺 HEADER: Arama ve Başlık Bölgesi --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight text-left">
@@ -178,8 +179,9 @@ const AppointmentList = () => {
         </div>
       </div>
 
-      {/* --- GRID --- */}
+      {/* --- 🩺 GRID: Randevu Kartları --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* ➕ YENİ RANDEVU BUTONU */}
         <button
           onClick={() => setIsModalOpen(true)}
           className="bg-indigo-50/50 border-2 border-dashed border-indigo-200 rounded-[2.5rem] p-10 flex flex-col items-center justify-center gap-4 hover:bg-indigo-50 hover:border-indigo-400 transition-all group min-h-130"
@@ -197,6 +199,7 @@ const AppointmentList = () => {
           </div>
         </button>
 
+        {/* 📋 RANDEVU DÖNGÜSÜ */}
         {data?.myAppointments?.map((app: Appointment) => (
           <div
             key={app.id}
@@ -220,38 +223,43 @@ const AppointmentList = () => {
             </div>
 
             <div className="space-y-6">
-              {/* DATE */}
-              <div className="flex items-center gap-3 text-indigo-600 font-bold bg-indigo-50 w-fit px-4 py-2 rounded-xl">
-                <CalendarClock size={20} />
-                <span className="text-sm">
-                  {new Date(app.startTime).toLocaleDateString()} @{" "}
-                  {new Date(app.startTime).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
+              {/* 🔗 DATE LINK: Tarihe tıklayınca detaya! */}
+              <Link to={`/appointments/${app.id}`} className="block w-fit">
+                <div className="flex items-center gap-3 text-indigo-600 font-bold bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors">
+                  <CalendarClock size={20} />
+                  <span className="text-sm">
+                    {new Date(app.startTime).toLocaleDateString()} @{" "}
+                    {new Date(app.startTime).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              </Link>
 
               {/* PATIENT & STAFF INFO */}
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">
                     Patient / Customer
                   </p>
-                  <h3 className="text-2xl font-black text-slate-800 leading-tight text-left truncate">
-                    {app.customer?.name}
-                  </h3>
+                  {/* 🔗 NAME LINK: İsme tıklayınca detaya! */}
+                  <Link to={`/appointments/${app.id}`}>
+                    <h3 className="text-2xl font-black text-slate-800 leading-tight text-left truncate hover:text-indigo-600 transition-colors decoration-indigo-200 hover:underline decoration-2 underline-offset-4">
+                      {app.customer?.name}
+                    </h3>
+                  </Link>
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100/50 text-left">
                   <div className="bg-white p-2 rounded-lg shadow-sm">
                     <User size={18} className="text-indigo-500" />
                   </div>
-                  <div className="text-left">
+                  <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase">
                       Assigned Staff
                     </p>
                     <p className="text-sm font-bold text-slate-700">
-                      {app.staff?.name}
+                      {app.staff?.name || "Unassigned"}
                     </p>
                   </div>
                 </div>
@@ -266,61 +274,55 @@ const AppointmentList = () => {
                   </span>
                 </div>
                 <span className="text-xl font-black text-emerald-700">
-                  {new Intl.NumberFormat("tr-TR", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(app.price || 0)}
+                  ₺{app.price || 0}
                 </span>
               </div>
             </div>
 
-            {/* 💎 ACTION PANEL */}
+            {/* 💎 ACTION PANEL: Butonlar */}
             <div className="pt-6 space-y-4 border-t border-slate-50">
               <div className="space-y-2">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">
                   Update Status
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleStatusUpdate(app.id, "PENDING")}
-                    disabled={statusLoading || app.status === "PENDING"}
-                    className={`py-2 rounded-xl text-[10px] font-bold transition-all border ${app.status === "PENDING" ? "bg-amber-50 border-amber-200 text-amber-600" : "bg-white border-slate-100 text-slate-400 hover:border-amber-200"}`}
-                  >
-                    Pending ⏳
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(app.id, "CONFIRMED")}
-                    disabled={statusLoading || app.status === "CONFIRMED"}
-                    className={`py-2 rounded-xl text-[10px] font-bold transition-all border ${app.status === "CONFIRMED" ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-white border-slate-100 text-slate-400 hover:border-blue-200"}`}
-                  >
-                    Confirm ✅
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(app.id, "CANCELLED")}
-                    disabled={statusLoading || app.status === "CANCELLED"}
-                    className={`py-2 rounded-xl text-[10px] font-bold transition-all border ${app.status === "CANCELLED" ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-white border-slate-100 text-slate-400 hover:border-rose-200"}`}
-                  >
-                    Cancel ❌
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(app.id, "COMPLETED")}
-                    disabled={statusLoading || app.status === "COMPLETED"}
-                    className={`py-2 rounded-xl text-[10px] font-bold transition-all border ${app.status === "COMPLETED" ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-white border-slate-100 text-slate-400 hover:border-emerald-200"}`}
-                  >
-                    Complete 💎
-                  </button>
+                  {["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"].map(
+                    (status) => (
+                      <button
+                        key={status}
+                        onClick={(e) => {
+                          e.stopPropagation(); // 🚑 Detaya gitme, sadece durumu güncelle!
+                          handleStatusUpdate(app.id, status);
+                        }}
+                        disabled={statusLoading || app.status === status}
+                        className={`py-2 rounded-xl text-[9px] font-black transition-all border ${
+                          app.status === status
+                            ? "bg-slate-900 border-slate-900 text-white shadow-md"
+                            : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200"
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleEdit(app)}
-                  className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-indigo-600 transition-colors text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(app);
+                  }}
+                  className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black hover:bg-indigo-600 transition-colors text-[10px] uppercase tracking-widest"
                 >
                   Edit Case
                 </button>
                 <button
-                  onClick={() => handleDelete(app.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(app.id);
+                  }}
                   disabled={deleteLoading}
                   className="px-4 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-colors border border-rose-100 disabled:opacity-50"
                 >
@@ -332,7 +334,7 @@ const AppointmentList = () => {
         ))}
       </div>
 
-      {/* --- EMPTY STATE --- */}
+      {/* --- 🚨 EMPTY STATE --- */}
       {data?.myAppointments?.length === 0 && (
         <div className="text-center py-32 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-200">
           <p className="text-slate-400 font-bold text-xl italic">
@@ -341,7 +343,7 @@ const AppointmentList = () => {
         </div>
       )}
 
-      {/* --- MODAL --- */}
+      {/* --- ➕ MODAL --- */}
       <AddAppointmentModal
         key={selectedAppointment?.id || "new-appointment"}
         isOpen={isModalOpen}
