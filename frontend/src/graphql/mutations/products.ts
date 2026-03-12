@@ -15,8 +15,9 @@ export const CREATE_PRODUCT = gql`
 export const DELETE_PRODUCT = gql`
   mutation DeleteProduct($id: ID!) {
     deleteProduct(id: $id) {
-      id
-      name
+      deletedId
+      success
+      message
     }
   }
 `;

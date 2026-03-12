@@ -16,6 +16,7 @@ import ProductList from "./pages/Dasboard/products/Products";
 import StaffList from "./pages/Dasboard/staff/StaffList";
 import AppointmentList from "./pages/Dasboard/appointments/AppointmentList";
 import SaleList from "./pages/Dasboard/sales/SaleList";
+import CustomerDetailPage from "./pages/Dasboard/customers/[id]";
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
         >
           {/* Buradaki sayfalar DashboardLayout'un içindeki <Outlet /> kısmına yerleşir */}
           <Route path="/overview" element={<Overview />} />
+          <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/staff" element={<StaffList />} />

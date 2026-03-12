@@ -618,11 +618,17 @@ export const resolvers = {
       };
 
       try {
-        const deleted = await prisma.customer.deleteMany({ where });
+        await prisma.appointment.deleteMany({ where: { customerId: id } });
+
+        const deleted = await prisma.customer.delete({ where });
 
         if (deleted.count === 0)
           throw new Error("Customer not found or you do not have permission.");
-        return { id };
+        return {
+          deletedId: id,
+          success: true,
+          message: "Customer succesfully deleted!",
+        };
       } catch (err) {
         console.error("Error deleting customer:", err);
         throw new Error("Failed to delete customer.");
@@ -827,12 +833,18 @@ export const resolvers = {
       };
 
       try {
-        const deleted = await prisma.staff.deleteMany({ where });
+        await prisma.appointment.deleteMany({ where: { staffId: id } });
+
+        const deleted = await prisma.staff.delete({ where });
 
         if (deleted.count === 0)
           throw new Error("Staff not found or you do not have permission.");
 
-        return { id };
+        return {
+          deletedId: id,
+          success: true,
+          message: "Staff member successfully deleted.",
+        };
       } catch (err) {
         console.error("Error deleting staff:", err);
         throw new Error("Failed to delete staff.");

@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
+import { Link } from "react-router-dom";
 
 interface Customer {
   id: string;
@@ -140,10 +141,13 @@ const CustomerList: React.FC = () => {
                   <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100 group-hover:scale-110 transition-transform">
                     {customer.name.charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-800 text-lg leading-none mb-1">
+                  <div className="flex flex-col text-left">
+                    <Link
+                      to={`/customers/${customer.id}`}
+                      className="font-bold text-slate-800 text-lg leading-none mb-1 hover:text-indigo-600 transition-colors cursor-pointer"
+                    >
                       {customer.name}
-                    </span>
+                    </Link>
                     <span className="text-[10px] font-mono text-slate-400">
                       ID: {customer.id.slice(-6)}
                     </span>

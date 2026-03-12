@@ -20,7 +20,9 @@ export const CREATE_STAFF = gql`
 export const DELETE_STAFF = gql`
   mutation DeleteStaff($id: ID!) {
     deleteStaff(id: $id) {
-      id
+      deletedId
+      success
+      message
     }
   }
 `;
