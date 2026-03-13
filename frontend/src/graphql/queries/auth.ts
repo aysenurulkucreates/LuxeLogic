@@ -183,3 +183,28 @@ export const GET_MY_SALES = gql`
     }
   }
 `;
+
+export const GET_SALE = gql`
+  query GetSale($id: ID!) {
+    getSale(id: $id) {
+      id
+      quantity
+      totalPrice
+      product {
+        id
+        name
+        category
+      }
+      customer {
+        id
+        name
+        email
+        phone
+      }
+      tenant {
+        id
+      }
+      createdAt
+    }
+  }
+`;

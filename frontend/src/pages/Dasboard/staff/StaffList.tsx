@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
-import { GET_MY_STAFF } from "../../../graphql/queries/auth";
-import { DELETE_STAFF } from "../../../graphql/mutations/staff";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@apollo/client";
+import { Link } from "react-router-dom"; // 🩺 CRITICAL: Link injection added
 import {
-  LayoutGrid,
-  PackagePlus,
+  UserPlus,
   Pencil,
   Search,
   Trash2,
   Phone,
-  Briefcase,
   UserX,
+  Mail,
+  Award,
 } from "lucide-react";
+import { GET_MY_STAFF } from "../../../graphql/queries/auth";
+import { DELETE_STAFF } from "../../../graphql/mutations/staff";
 import AddStaffModal from "../../../components/shared/AddStaffModal";
 
 interface Staff {
@@ -45,7 +46,8 @@ const StaffList: React.FC = () => {
 
   const [deleteStaff] = useMutation(DELETE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
-    onCompleted: () => alert("Staff member removed from the team."),
+    onCompleted: () =>
+      alert("Specialist successfully discharged from the roster. 💉"),
   });
 
   const handleEdit = (staff: Staff) => {
@@ -61,7 +63,7 @@ const StaffList: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (
       window.confirm(
-        "Are you sure you want to delete this staff member? This cannot be undone!",
+        "Are you sure you want to permanently remove this specialist from the team? 🚨",
       )
     ) {
       await deleteStaff({ variables: { id } });
@@ -70,30 +72,35 @@ const StaffList: React.FC = () => {
 
   if (loading)
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="flex flex-col justify-center items-center h-screen bg-[#F8FAFC]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+        <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">
+          Paging Medical Team... 💉
+        </p>
       </div>
     );
 
   if (error)
     return (
-      <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100 mt-10">
-        ⚠️ Diagnostic Error: {error.message}
+      <div className="p-10 max-w-7xl mx-auto">
+        <div className="bg-rose-50 text-rose-600 p-8 rounded-[2.5rem] border border-rose-100 font-black text-center shadow-sm">
+          🚨 Diagnostic Error: {error.message}
+        </div>
       </div>
     );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
-      {/* Search & Header */}
+    <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">
+      {/* --- SEARCH & HEADER --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
         <div className="relative max-w-md w-full group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
           </div>
           <input
             type="text"
-            placeholder="Search team by name or expertise..."
-            className="block w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl bg-white shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+            placeholder="Search specialists or skills..."
+            className="block w-full pl-14 pr-4 py-4 bg-white border border-slate-100 rounded-[1.8rem] shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none font-bold text-slate-700"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -101,31 +108,31 @@ const StaffList: React.FC = () => {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-bold active:scale-95"
+          className="flex items-center justify-center gap-3 bg-indigo-600 text-white px-10 py-4 rounded-[1.8rem] hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-black uppercase text-xs tracking-widest active:scale-95"
         >
-          <PackagePlus size={20} />
-          Add New Professional
+          <UserPlus size={18} />
+          Add New Specialist
         </button>
       </div>
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-          Team Roster
+      <div className="mb-10 space-y-1">
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+          Medical <span className="text-indigo-600">Team Roster</span>
         </h1>
-        <p className="text-slate-500 text-sm mt-1 font-medium">
-          Active personnel in your clinic:{" "}
+        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">
+          Current Active Professionals:{" "}
           <span className="text-indigo-600">{data?.myStaff?.length || 0}</span>
         </p>
       </div>
 
-      {/* Table Structure */}
-      <div className="bg-white rounded-4xl shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-        <div className="grid grid-cols-6 bg-slate-50/80 px-8 py-5 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-widest">
-          <span className="col-span-2">Professional</span>
-          <span>Contact</span>
-          <span>Expertise</span>
-          <span>Schedule</span>
-          <span className="text-right">Actions</span>
+      {/* --- TABLE CONTAINER --- */}
+      <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)] border border-slate-50 overflow-hidden">
+        <div className="grid grid-cols-6 bg-slate-50/50 px-10 py-7 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+          <span className="col-span-2">Specialist Identity</span>
+          <span>Contact Channels</span>
+          <span>Domain</span>
+          <span>Availability</span>
+          <span className="text-right">Operation</span>
         </div>
 
         <div className="divide-y divide-slate-50">
@@ -133,83 +140,108 @@ const StaffList: React.FC = () => {
             data.myStaff.map((staff: Staff) => (
               <div
                 key={staff.id}
-                className="grid grid-cols-6 px-8 py-7 items-center hover:bg-indigo-50/20 transition-all group"
+                className="grid grid-cols-6 px-10 py-9 items-center hover:bg-indigo-50/30 transition-all group"
               >
-                {/* Name & ID */}
-                <div className="col-span-2 flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100">
-                    {staff.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-800 text-lg leading-tight">
-                      {staff.name}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold uppercase mt-1 ${staff.isActive ? "text-emerald-500" : "text-slate-400"}`}
-                    >
-                      {staff.isActive ? "● Active" : "○ Inactive"}
-                    </span>
-                  </div>
+                {/* 🔗 THE MASTER LINK: Name & Avatar */}
+                <div className="col-span-2">
+                  <Link
+                    to={`/staff/${staff.id}`}
+                    className="flex items-center gap-5 w-fit group/link"
+                  >
+                    <div className="w-16 h-16 rounded-3xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-100 group-hover/link:scale-110 transition-transform duration-300">
+                      {staff.imageUrl ? (
+                        <img
+                          src={staff.imageUrl}
+                          alt={staff.name}
+                          className="w-full h-full object-cover rounded-3xl"
+                        />
+                      ) : (
+                        staff.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-800 text-xl group-hover/link:text-indigo-600 transition-colors">
+                        {staff.name}
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div
+                          className={`w-2 h-2 rounded-full ${staff.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`}
+                        />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          {staff.isActive ? "Active Duty" : "On Leave"}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
 
                 {/* Email & Phone */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                    <LayoutGrid size={12} className="text-slate-400" />
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
+                    <Mail size={14} className="text-indigo-400" />
                     {staff.email}
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                    <Phone size={12} className="text-slate-400" />
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
+                    <Phone size={14} className="text-indigo-400" />
                     {staff.phone}
                   </div>
                 </div>
 
                 {/* Expertise */}
                 <div>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold">
-                    <Briefcase size={12} />
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+                    <Award size={14} />
                     {staff.expertise}
                   </span>
                 </div>
 
                 {/* Work Days */}
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {staff.workDays?.slice(0, 3).map((day, idx) => (
                     <span
                       key={idx}
-                      className="text-[10px] bg-slate-100 px-2 py-1 rounded-md font-bold text-slate-500"
+                      className="text-[9px] bg-slate-100 px-3 py-1.5 rounded-lg font-black text-slate-400 uppercase tracking-widest"
                     >
                       {day.substring(0, 3)}
                     </span>
                   ))}
+                  {staff.workDays?.length > 3 && (
+                    <span className="text-[9px] text-indigo-400 font-black">
+                      + {staff.workDays.length - 3}
+                    </span>
+                  )}
                 </div>
 
                 {/* Actions */}
                 <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
                   <button
                     onClick={() => handleEdit(staff)}
-                    className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                    className="p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all"
                   >
-                    <Pencil size={18} />
+                    <Pencil size={20} />
                   </button>
                   <button
                     onClick={() => handleDelete(staff.id)}
-                    className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-all"
+                    className="p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-rose-600 hover:border-rose-100 transition-all"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={20} />
                   </button>
                 </div>
               </div>
             ))
           ) : (
-            <div className="py-32 text-center flex flex-col items-center gap-4">
-              <UserX size={64} className="text-slate-200" />
-              <p className="text-slate-400 font-bold text-lg">
-                Your medical team is currently empty.
-              </p>
-              <p className="text-slate-300 text-sm max-w-xs">
-                Start by adding your first professional staff to the roster.
-              </p>
+            <div className="py-40 text-center flex flex-col items-center gap-6">
+              <div className="p-10 bg-slate-50 rounded-full">
+                <UserX size={64} className="text-slate-200" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+                  Roster is currently empty.✨
+                </p>
+                <p className="text-slate-300 text-xs font-medium">
+                  Start by adding your first medical professional.
+                </p>
+              </div>
             </div>
           )}
         </div>

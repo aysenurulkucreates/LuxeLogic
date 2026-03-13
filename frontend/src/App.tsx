@@ -18,6 +18,9 @@ import AppointmentList from "./pages/Dasboard/appointments/AppointmentList";
 import SaleList from "./pages/Dasboard/sales/SaleList";
 import CustomerDetailPage from "./pages/Dasboard/customers/[id]";
 import AppointmentDetailPage from "./pages/Dasboard/appointments/[id]";
+import ProductDetailPage from "./pages/Dasboard/products/[id]";
+import StaffDetailPage from "./pages/Dasboard/staff/[id]";
+import SaleDetailPage from "./pages/Dasboard/sales/[id]";
 
 function App() {
   return (
@@ -37,13 +40,16 @@ function App() {
         >
           {/* Buradaki sayfalar DashboardLayout'un içindeki <Outlet /> kısmına yerleşir */}
           <Route path="/overview" element={<Overview />} />
-          <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/customers" element={<CustomerList />} />
+          <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/products" element={<ProductList />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
           <Route path="/staff" element={<StaffList />} />
+          <Route path="/staff/:id" element={<StaffDetailPage />} />
           <Route path="/appointments" element={<AppointmentList />} />
           <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
           <Route path="/sales" element={<SaleList />} />
+          <Route path="/sales/:id" element={<SaleDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>

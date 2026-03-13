@@ -347,6 +347,7 @@ export const resolvers = {
         include: {
           product: true,
           customer: true,
+          tenant: true,
         },
       });
       return sale;
@@ -708,9 +709,7 @@ export const resolvers = {
       }
     },
     deleteProduct: async (_: any, { id }: any, { prisma, user }: myContext) => {
-      if (!user) {
-        throw new Error("You must be logged in to perform this action.");
-      }
+      if (!user) throw new Error("Authentication required.");
 
       const where = {
         id: id,
@@ -718,19 +717,31 @@ export const resolvers = {
       };
 
       try {
+        // 🩺 1. ADIM: Bağımlılık Kontrolü (Surgical Check)
+        const usageCount = await prisma.sale.count({
+          where: { productId: id },
+        });
+
+        if (usageCount > 0) {
+          throw new Error(
+            "Cannot delete product: It is linked to existing sales records. Try deactivating it instead. ⚠️",
+          );
+        }
+
+        // 🩺 2. ADIM: Güvenli Silme (Hard Delete)
         const deleted = await prisma.product.deleteMany({ where });
 
         if (deleted.count === 0)
-          throw new Error("Product not found or you do not have permission.");
+          throw new Error("Product not found or unauthorized.");
 
         return {
           deletedId: id,
           success: true,
-          message: "Product successfully deleted.",
+          message: "Product removed from the system successfully. 💎",
         };
-      } catch (err) {
-        console.error("Error deleting product:", err);
-        throw new Error("Failed to delete product.");
+      } catch (err: any) {
+        console.error("Delete Error:", err);
+        throw new Error(err.message || "Failed to execute delete operation.");
       }
     },
     updateProduct: async (
