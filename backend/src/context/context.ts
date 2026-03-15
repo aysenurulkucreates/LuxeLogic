@@ -1,13 +1,13 @@
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 
-// 1. Context'in içindeki verilerin tipini güncelliyoruz (TS lüksü!)
+// Define the structure of our GraphQL Context for TypeScript
 export interface GraphQLContext {
   user: any | null;
-  prisma: typeof prisma; // 🚑 KRİTİK DİKİŞ: Prisma'yı çantanın bir parçası yapıyoruz!
+  prisma: typeof prisma; // Essential: Keeps the prisma instance available in all resolvers
 }
 
-// 2. Ana fonksiyonumuz
+// Main context creation function called on every request
 export const createContext = async ({
   req,
 }: {
@@ -16,19 +16,22 @@ export const createContext = async ({
   const auth = req.headers.authorization || "";
   const token = auth.replace("Bearer ", "");
 
-  // 💉 Token yoksa bile prisma'yı döndürmelisin ki sistem "undefined" diye çökmesin!
+  // If no token exists, return prisma with null user to prevent system crash
   if (!token) return { user: null, prisma };
 
   try {
+    // Verify the JWT token - Replace "supersecretkey" with your env variable in production!
     const decoded = jwt.verify(token, "supersecretkey") as { userId: string };
 
+    // Fetch user and tenant data from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: { tenant: true },
     });
 
-    return { user, prisma }; // ✅ Çantaya Prisma amcayı da koyduk!
+    return { user, prisma };
   } catch (error) {
-    return { user: null, prisma }; // 🚑 Hata olsa bile prisma'yı geri veriyoruz.
+    // Return prisma even if token verification fails to keep the app stable
+    return { user: null, prisma };
   }
 };
