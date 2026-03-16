@@ -17,7 +17,7 @@ const httpServer = http.createServer(app);
 // Socket.io için modern kurulum
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "http://localhost:5173"],
     methods: ["GET", "POST"],
   },
 });
@@ -34,15 +34,22 @@ app.use(
   cors(),
   express.json(), // 🚨 body-parser'a gerek yok, Express'in kendi neşterini kullanıyoruz
   expressMiddleware(server, {
-    context: createContext,
+    // 🚨 YENİ: createContext'e sadece req değil, yukarıda kurduğumuz io telsizini de yolluyoruz!
+    context: async ({ req }) => await createContext({ req, io }),
   }) as any,
 );
 
 io.on("connection", (socket) => {
   console.log("🚀 Client connected to Socket.io! ID:", socket.id);
 
+  // 🚨 YENİ: Frontend "Ben geldim, benim şirket kodum bu" dediğinde onu odaya alıyoruz!
+  socket.on("join_tenant_room", (tenantId) => {
+    socket.join(tenantId);
+    console.log(`🏥 The radio joined room number ${socket.id}, [${tenantId}]!`);
+  });
+
   socket.on("disconnect", () => {
-    console.log("🚑 Client disconnected.");
+    console.log(" Client disconnected.");
   });
 });
 

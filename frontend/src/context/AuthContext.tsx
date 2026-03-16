@@ -1,23 +1,35 @@
 import React, { createContext, useState } from "react";
-// 1. "import type" kullanarak TypeScript'i susturduk
 import type { User, AuthContextType } from "../types/auth";
+import { jwtDecode } from "jwt-decode"; // 🚨 YENİ: Token'ın içini okuyan sihirli neşter!
 
-// 2. Export'u kaldırdık (Fast Refresh hatası için)
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Bunu aşağıda kullanabilmek için export etmiyoruz, hook üzerinden erişeceğiz
 export { AuthContext };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  // 3. useState içinde direkt localStorage kontrolü yaparak useEffect hatasını çözdün, aferin sana!
+  // Başlangıçta token varsa içini açıp gerçek verileri alıyoruz
   const [user, setUser] = useState<User | null>(() => {
     const token = localStorage.getItem("token");
-    return token ? { loggedIn: true } : null;
+    if (token) {
+      try {
+        // Token'ı çöz! İçindeki tenantId, id, email gibi bilgiler buraya akar.
+        const decodedUser = jwtDecode<User>(token);
+        return decodedUser;
+      } catch (error) {
+        console.log(error);
+        // Token bozuksa veya süresi geçmişse temizle
+        localStorage.removeItem("token");
+        return null;
+      }
+    }
+    return null;
   });
 
   const login = (token: string) => {
     localStorage.setItem("token", token);
-    setUser({ loggedIn: true });
+    // 🚨 YENİ: Giriş yapıldığında da token'ı çözüp gerçek bilgileri state'e yazıyoruz
+    const decodedUser = jwtDecode<User>(token);
+    setUser(decodedUser);
   };
 
   const logout = () => {

@@ -13,6 +13,22 @@ import {
 } from "lucide-react";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../../hooks/useAuth";
+
+// 🚨 1. ADIM: Telsizi (Socket) ithal ediyoruz
+import { io } from "socket.io-client";
+
+// 🚨 2. ADIM: Telsizi backend'e bağlıyoruz (Sayfa yenilenene kadar tek bağlantı)
+const socket = io("http://localhost:4000");
+
+// 🚨 YENİ: User Interface'ini de bu dosyaya aldık (TypeScript mızmızlanmasın diye)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  tenantId: string; // İşte altın anahtarımız!
+}
 
 interface Customer {
   id: string;
@@ -29,12 +45,19 @@ const CustomerList: React.FC = () => {
     null,
   );
 
+  // 🚨 YENİ: Gelen user'a "Sen bu kimliktesin" diyoruz ki tenantId'yi görsün.
+  const { user } = useAuth() as { user: User | null };
+
+  // Anahtarı otomatik olarak giriş yapan kullanıcıdan alıyoruz
+  const userTenantId = user?.tenantId;
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { loading, error, data } = useQuery(GET_MY_CUSTOMERS, {
+  // 🚨 3. ADIM: Apollo'dan 'refetch' fonksiyonunu çekiyoruz ki canlı güncelleyebilelim
+  const { loading, error, data, refetch } = useQuery(GET_MY_CUSTOMERS, {
     variables: { searchTerm: debouncedSearchTerm },
   });
 
@@ -43,6 +66,39 @@ const CustomerList: React.FC = () => {
     onCompleted: () =>
       alert("Customer successfully discharged from the system."),
   });
+
+  // 🚨 4. ADIM: ŞOV ZAMANI! Socket.io Kulaklığını Takıyoruz
+  useEffect(() => {
+    // Önce Odaya (Kendi Firmamızın Telsiz Frekansına) giriyoruz
+    if (userTenantId) {
+      socket.emit("join_tenant_room", userTenantId);
+    }
+
+    // YENİ MÜŞTERİ SİNYALİ GELDİĞİNDE
+    socket.on("customer_created", (newCustomer) => {
+      console.log("🚀 LIVE BROADCAST: New customer added!", newCustomer);
+      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+    });
+
+    // MÜŞTERİ SİLİNDİ SİNYALİ GELDİĞİNDE
+    socket.on("customer_deleted", (deletedId) => {
+      console.log("LIVE BROADCAST: New customer deleted!", deletedId);
+      refetch();
+    });
+
+    // MÜŞTERİ GÜNCELLENDİ SİNYALİ GELDİĞİNDE
+    socket.on("customer_updated", (updatedCustomer) => {
+      console.log("✨LIVE BROADCAST: New customer updated!", updatedCustomer);
+      refetch();
+    });
+
+    // TEMİZLİK: Bileşen ekrandan kalkarsa kulaklığı çıkarıyoruz (Hafıza sızıntısını önler)
+    return () => {
+      socket.off("customer_created");
+      socket.off("customer_deleted");
+      socket.off("customer_updated");
+    };
+  }, [refetch, userTenantId]); // refetch veya tenantId değişirse hook güncellensin
 
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer);

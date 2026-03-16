@@ -10,6 +10,7 @@ interface myContext {
     role: string;
   };
   prisma: any;
+  io: any;
 }
 
 export const resolvers = {
@@ -575,7 +576,7 @@ export const resolvers = {
     createCustomer: async (
       _: any,
       { input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user)
         throw new Error("You must be logged in to perform this action.");
@@ -596,6 +597,9 @@ export const resolvers = {
             tenantId: targetTenantId,
           },
         });
+
+        io.to(targetTenantId).emit("customer_created", newCustomer);
+
         return newCustomer;
       } catch (err: any) {
         if (err.code === "P2002") {
@@ -608,7 +612,7 @@ export const resolvers = {
     deleteCustomer: async (
       _: any,
       { id }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user)
         throw new Error("You must be logged in to perform this action.");
@@ -625,6 +629,9 @@ export const resolvers = {
 
         if (deleted.count === 0)
           throw new Error("Customer not found or you do not have permission.");
+
+        io.to(deleted.tenantId).emit("customer_deleted", id);
+
         return {
           deletedId: id,
           success: true,
@@ -638,7 +645,7 @@ export const resolvers = {
     updateCustomer: async (
       _: any,
       { id, input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) throw new Error("You must be logged in.");
 
@@ -663,10 +670,17 @@ export const resolvers = {
           throw new Error("Customer not found or access denied.");
         }
 
-        return await prisma.customer.update({
+        const updatedCustomer = await prisma.customer.update({
           where: { id: id },
           data: updateData,
         });
+
+        io.to(updatedCustomer.tenantId).emit(
+          "customer_updated",
+          updatedCustomer,
+        );
+
+        return updatedCustomer;
       } catch (error: any) {
         if (error.code === "P2002") {
           throw new Error("This email is already in use by another customer.");

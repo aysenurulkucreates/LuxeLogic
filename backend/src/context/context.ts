@@ -1,37 +1,38 @@
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
+import { Server } from "socket.io"; // 🚨 YENİ: Socket.io tipini içeri alıyoruz
 
-// Define the structure of our GraphQL Context for TypeScript
+// Context çantamıza telsizi (io) ekliyoruz
 export interface GraphQLContext {
   user: any | null;
-  prisma: typeof prisma; // Essential: Keeps the prisma instance available in all resolvers
+  prisma: typeof prisma;
+  io: Server; // 🚨 YENİ: Telsizimiz artık çantada!
 }
 
-// Main context creation function called on every request
+// createContext fonksiyonunun parametrelerine io'yu ekliyoruz
 export const createContext = async ({
   req,
+  io, // 🚨 YENİ: index.ts'den bu telsizi alacağız
 }: {
   req: any;
+  io: Server;
 }): Promise<GraphQLContext> => {
   const auth = req.headers.authorization || "";
   const token = auth.replace("Bearer ", "");
 
-  // If no token exists, return prisma with null user to prevent system crash
-  if (!token) return { user: null, prisma };
+  // Token yoksa bile io'yu döndürmeyi unutmuyoruz
+  if (!token) return { user: null, prisma, io };
 
   try {
-    // Verify the JWT token - Replace "supersecretkey" with your env variable in production!
     const decoded = jwt.verify(token, "supersecretkey") as { userId: string };
 
-    // Fetch user and tenant data from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: { tenant: true },
     });
 
-    return { user, prisma };
+    return { user, prisma, io }; // 🚨 YENİ: Her şey yolundaysa io'yu da teslim et
   } catch (error) {
-    // Return prisma even if token verification fails to keep the app stable
-    return { user: null, prisma };
+    return { user: null, prisma, io }; // 🚨 YENİ: Hata olsa bile io çökmesin
   }
 };
