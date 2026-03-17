@@ -18,10 +18,13 @@ import { useAuth } from "../../../hooks/useAuth";
 // 🚨 1. ADIM: Telsizi (Socket) ithal ediyoruz
 import { io } from "socket.io-client";
 
+// 🚨 YENİ: React Hot Toast'u (Altın Musluk) ithal ediyoruz!
+import toast, { Toaster } from "react-hot-toast";
+
 // 🚨 2. ADIM: Telsizi backend'e bağlıyoruz (Sayfa yenilenene kadar tek bağlantı)
 const socket = io("http://localhost:4000");
 
-// 🚨 YENİ: User Interface'ini de bu dosyaya aldık (TypeScript mızmızlanmasın diye)
+// User Interface'i
 interface User {
   id: string;
   email: string;
@@ -45,7 +48,7 @@ const CustomerList: React.FC = () => {
     null,
   );
 
-  // 🚨 YENİ: Gelen user'a "Sen bu kimliktesin" diyoruz ki tenantId'yi görsün.
+  // Gelen user'a "Sen bu kimliktesin" diyoruz ki tenantId'yi görsün.
   const { user } = useAuth() as { user: User | null };
 
   // Anahtarı otomatik olarak giriş yapan kullanıcıdan alıyoruz
@@ -64,7 +67,7 @@ const CustomerList: React.FC = () => {
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     refetchQueries: [{ query: GET_MY_CUSTOMERS }],
     onCompleted: () =>
-      alert("Customer successfully discharged from the system."),
+      toast.success("Customer successfully discharged from the system."), // YENİ: Alert yerine Toast kullandık
   });
 
   // 🚨 4. ADIM: ŞOV ZAMANI! Socket.io Kulaklığını Takıyoruz
@@ -76,19 +79,32 @@ const CustomerList: React.FC = () => {
 
     // YENİ MÜŞTERİ SİNYALİ GELDİĞİNDE
     socket.on("customer_created", (newCustomer) => {
-      console.log("🚀 LIVE BROADCAST: New customer added!", newCustomer);
+      // 🚨 YENİ: console.log yerine ekrandan süzülen Toast bildirimi!
+      toast.success(`New customer arrived: ${newCustomer.name}`, {
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
       refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
     });
 
     // MÜŞTERİ SİLİNDİ SİNYALİ GELDİĞİNDE
     socket.on("customer_deleted", (deletedId) => {
-      console.log("LIVE BROADCAST: New customer deleted!", deletedId);
+      // 🚨 YENİ: Silinme için kırmızı hata bildirimi
+      toast.error(
+        `A customer ${deletedId} , has been removed from the system.`,
+      );
       refetch();
     });
 
     // MÜŞTERİ GÜNCELLENDİ SİNYALİ GELDİĞİNDE
     socket.on("customer_updated", (updatedCustomer) => {
-      console.log("✨LIVE BROADCAST: New customer updated!", updatedCustomer);
+      // 🚨 YENİ: Güncelleme için pırıltılı bildirim
+      toast.success(`${updatedCustomer.name}'s profile has been updated!`, {
+        icon: "✨",
+      });
       refetch();
     });
 
@@ -136,6 +152,9 @@ const CustomerList: React.FC = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+      {/* 🚨 YENİ: Toast bildirimlerinin ekranda görünebilmesi için bu motoru buraya koyuyoruz! */}
+      <Toaster position="top-right" reverseOrder={false} />
+
       {/* 🔍 Search & Actions Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
         <div className="relative max-w-md w-full group">

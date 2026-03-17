@@ -694,7 +694,7 @@ export const resolvers = {
     createProduct: async (
       _: any,
       { input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user)
         throw new Error("You must be logged in to perform this action.");
@@ -716,22 +716,44 @@ export const resolvers = {
             tenantId: targetTenantId,
           },
         });
+
+        io.to(targetTenantId).emit("product_created", newProduct);
+
         return newProduct;
       } catch (err) {
         console.error("Error creating product:", err);
         throw new Error("Failed to create product.");
       }
     },
-    deleteProduct: async (_: any, { id }: any, { prisma, user }: myContext) => {
+    deleteProduct: async (
+      _: any,
+      { id }: any,
+      { prisma, user, io }: myContext,
+    ) => {
       if (!user) throw new Error("Authentication required.");
 
-      const where = {
-        id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
-      };
-
       try {
-        // 🩺 1. ADIM: Bağımlılık Kontrolü (Surgical Check)
+        // 🩺 1. ADIM: Önce silinecek ürünü buluyoruz!
+        // (Çünkü Super Admin siliyorsa hangi şirkete ait olduğunu ancak böyle öğrenebiliriz)
+        const productToDelete = await prisma.product.findUnique({
+          where: { id: id },
+        });
+
+        // Ürün yoksa zaten işlemi iptal et
+        if (!productToDelete) {
+          throw new Error("Product not found!");
+        }
+
+        // 🛡️ 2. ADIM: Güvenlik Duvarı
+        // (Eğer Super Admin değilse ve kendi şirketi değilse silemesin)
+        if (
+          user.role !== "SUPER_ADMIN" &&
+          productToDelete.tenantId !== user.tenantId
+        ) {
+          throw new Error("You do not have permission to delete this product.");
+        }
+
+        // 🩺 3. ADIM: Bağımlılık Kontrolü (Satışlarda kullanılmış mı?)
         const usageCount = await prisma.sale.count({
           where: { productId: id },
         });
@@ -742,11 +764,15 @@ export const resolvers = {
           );
         }
 
-        // 🩺 2. ADIM: Güvenli Silme (Hard Delete)
-        const deleted = await prisma.product.deleteMany({ where });
+        // 🗑️ 4. ADIM: Güvenli Silme (Artık gönül rahatlığıyla silebiliriz)
+        // Burada deleteMany yerine direkt delete kullanıyoruz çünkü id benzersiz
+        await prisma.product.delete({
+          where: { id: id },
+        });
 
-        if (deleted.count === 0)
-          throw new Error("Product not found or unauthorized.");
+        // 🚨 5. ADIM: Telsiz Anonsu!
+        // Ürünü silmeden önce 1. Adımda bilgilerini çekmiştik, o yüzden 'tenantId' altın gibi elimizde!
+        io.to(productToDelete.tenantId).emit("product_deleted", id);
 
         return {
           deletedId: id,
@@ -761,7 +787,7 @@ export const resolvers = {
     updateProduct: async (
       _: any,
       { id, input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) {
         throw new Error("You must be logged in to perform this action.");
@@ -793,6 +819,8 @@ export const resolvers = {
           data: updateData,
         });
 
+        io.to(updatedProduct.tenantId).emit("product_updated", updatedProduct);
+
         return updatedProduct;
       } catch (err) {
         console.error("Error updating product:", err);
@@ -804,7 +832,7 @@ export const resolvers = {
     createStaff: async (
       _: any,
       { input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) throw new Error("You must be logged in.");
 
@@ -840,6 +868,9 @@ export const resolvers = {
             tenantId: targetTenantId,
           },
         });
+
+        io.to(targetTenantId).emit("staff_created", newStaff);
+
         return newStaff;
       } catch (err: any) {
         if (err.code === "P2002") {
@@ -851,7 +882,11 @@ export const resolvers = {
         throw new Error("An unexpected error occurred while creating staff.");
       }
     },
-    deleteStaff: async (_: any, { id }: any, { prisma, user }: myContext) => {
+    deleteStaff: async (
+      _: any,
+      { id }: any,
+      { prisma, user, io }: myContext,
+    ) => {
       if (!user) {
         throw new Error("You must be logged in to perform this action.");
       }
@@ -869,6 +904,8 @@ export const resolvers = {
         if (deleted.count === 0)
           throw new Error("Staff not found or you do not have permission.");
 
+        io.to(deleted.tenantId).emit("staff_deleted", id);
+
         return {
           deletedId: id,
           success: true,
@@ -882,7 +919,7 @@ export const resolvers = {
     updateStaff: async (
       _: any,
       { id, input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) {
         throw new Error("You must be logged in to perform this action.");
@@ -926,6 +963,8 @@ export const resolvers = {
           data: updateData,
         });
 
+        io.to(updatedStaff.tenantId).emit("staff_updated", updatedStaff);
+
         return updatedStaff;
       } catch (error: any) {
         if (error.code === "P2002") {
@@ -940,7 +979,7 @@ export const resolvers = {
     createAppointment: async (
       _: any,
       { input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) return null;
 
@@ -971,7 +1010,7 @@ export const resolvers = {
           "The staff already have an appointment at these times.",
         );
 
-      return await prisma.appointment.create({
+      const newApp = await prisma.appointment.create({
         data: {
           startTime: new Date(startTime),
           endTime: new Date(endTime),
@@ -988,11 +1027,15 @@ export const resolvers = {
           tenant: true,
         },
       });
+
+      io.to(targetTenantId).emit("appointment_created", newApp);
+
+      return newApp;
     },
     deleteAppointment: async (
       _: any,
       { id }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) return null;
 
@@ -1011,6 +1054,8 @@ export const resolvers = {
             deletedId: null,
           };
 
+        io.to(deleted.tenantId).emit("appointment_deleted", id);
+
         return {
           success: true,
           message: "Appointment successfully deleted.",
@@ -1028,7 +1073,7 @@ export const resolvers = {
     updateAppointment: async (
       _: any,
       { id, input }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) return null;
 
@@ -1075,7 +1120,7 @@ export const resolvers = {
 
         if (conflict) throw new Error("It clashes with another appointment.");
 
-        return await prisma.appointment.update({
+        const updatedApp = await prisma.appointment.update({
           where: { id: id },
           data: updateData,
           include: {
@@ -1084,24 +1129,39 @@ export const resolvers = {
             tenant: true,
           },
         });
+
+        io.to(updatedApp.tenantId).emit("appointment_updated", updatedApp);
+
+        return updatedApp;
       }
     },
     updateAppointmentStatus: async (
       _: any,
       { id, status }: any,
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) throw new Error("Authenticated required!");
 
-      return await prisma.appointment.update({
+      const updatedAppointment = await prisma.appointment.update({
         where: { id },
         data: { status },
         include: { customer: true, staff: true },
       });
+
+      io.to(updatedAppointment.tenantId).emit(
+        "appointment_status_updated",
+        updatedAppointment,
+      );
+
+      return updatedAppointment;
     },
 
     // sales
-    createSale: async (_: any, { input }: any, { prisma, user }: myContext) => {
+    createSale: async (
+      _: any,
+      { input }: any,
+      { prisma, user, io }: myContext,
+    ) => {
       if (!user) throw new Error("Authentication required.");
 
       const { quantity, totalPrice, customerId, productId } = input;
@@ -1150,6 +1210,8 @@ export const resolvers = {
             },
           });
 
+          io.to(targetTenantId).emit("sale_created", newSale);
+
           return newSale;
         });
       } catch (error: any) {
@@ -1162,7 +1224,7 @@ export const resolvers = {
     deleteSale: async (
       _: any,
       { id }: { id: string },
-      { prisma, user }: myContext,
+      { prisma, user, io }: myContext,
     ) => {
       if (!user) throw new Error("Authentication required.");
 
@@ -1201,6 +1263,8 @@ export const resolvers = {
               },
             },
           });
+
+          io.to(saleToDelete.tenantId).emit("sale_deleted", saleToDelete);
 
           // C. DeleteResponse Tipinde Cevap Dönüyoruz
           return {

@@ -14,6 +14,20 @@ import {
 import { GET_MY_STAFF } from "../../../graphql/queries/auth";
 import { DELETE_STAFF } from "../../../graphql/mutations/staff";
 import AddStaffModal from "../../../components/shared/AddStaffModal";
+import { io } from "socket.io-client";
+import toast, { Toaster } from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+
+const socket = io("http://localhost:4000");
+
+// User Interface'i
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  tenantId: string; // İşte altın anahtarımız!
+}
 
 interface Staff {
   id: string;
@@ -33,6 +47,10 @@ const StaffList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
 
+  const { user } = useAuth() as { user: User | null };
+
+  const userTenantId = user?.tenantId;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -40,15 +58,48 @@ const StaffList: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { loading, error, data } = useQuery(GET_MY_STAFF, {
+  const { loading, error, data, refetch } = useQuery(GET_MY_STAFF, {
     variables: { searchTerm: debouncedSearchTerm },
   });
 
   const [deleteStaff] = useMutation(DELETE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
     onCompleted: () =>
-      alert("Specialist successfully discharged from the roster. 💉"),
+      toast.success("Specialist successfully discharged from the roster. 💉"),
   });
+
+  useEffect(() => {
+    if (userTenantId) {
+      socket.emit("join_tenant_room", userTenantId);
+    }
+
+    socket.on("staff_created", (newStaff) => {
+      toast.success(`Staff ${newStaff.name} successfully created`, {
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
+      refetch();
+    });
+
+    socket.on("staff_deleted", (deletedId) => {
+      toast.success(`Staff ${deletedId} successfully deleted`, {
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
+      refetch();
+    });
+
+    socket.on("staff_updated", (updatedStaff) => {
+      toast.success(`Staff ${updatedStaff.name} sucessfully updated`, {
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
+      refetch();
+    });
+
+    return () => {
+      socket.off("staff_created");
+      socket.off("staff_deleted");
+      socket.off("staff_updated");
+    };
+  }, [refetch, userTenantId]);
 
   const handleEdit = (staff: Staff) => {
     setSelectedStaff(staff);
@@ -91,6 +142,7 @@ const StaffList: React.FC = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">
+      <Toaster position="top-right" reverseOrder={false} />
       {/* --- SEARCH & HEADER --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
         <div className="relative max-w-md w-full group">

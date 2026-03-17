@@ -18,6 +18,11 @@ import {
 } from "lucide-react";
 import AddAppointmentModal from "../../../components/shared/AddAppointmentModal";
 import { Link } from "react-router-dom";
+import { io } from "socket.io-client";
+import toast, { Toaster } from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+
+const socket = io("http://localhost:4000");
 
 // --- INTERFACES (Pırlanta Tipler) ---
 interface Staff {
@@ -33,6 +38,14 @@ interface Customer {
 interface Tenant {
   id: string;
   name: string;
+}
+// User Interface'i
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  tenantId: string; // İşte altın anahtarımız!
 }
 
 interface Appointment {
@@ -54,6 +67,10 @@ const AppointmentList = () => {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
+  const { user } = useAuth() as { user: User | null };
+
+  const userTenantId = user?.tenantId;
+
   // --- SEARCH DEBOUNCE (Sızıntı Önleyici 💉) ---
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
@@ -65,6 +82,7 @@ const AppointmentList = () => {
     loading: listLoading,
     error: listError,
     data,
+    refetch,
   } = useQuery(GET_MY_APPOINTMENTS, {
     variables: { input: { searchTerm: debouncedSearchTerm || "" } },
     fetchPolicy: "cache-and-network",
@@ -76,7 +94,9 @@ const AppointmentList = () => {
     {
       refetchQueries: [{ query: GET_MY_APPOINTMENTS }],
       onCompleted: () =>
-        alert("Vital record successfully discharged from the system. 💉"),
+        toast.success(
+          "Vital record successfully discharged from the system. 💉",
+        ),
       onError: (err) => alert(`Emergency! Could not delete: ${err.message}`),
     },
   );
@@ -89,11 +109,75 @@ const AppointmentList = () => {
         { query: GET_DASHBOARD_STATS },
       ],
       onCompleted: () =>
-        alert("Clinic records synchronized. Revenue updated! 💰✨"),
+        toast.success("Clinic records synchronized. Revenue updated! 💰✨"),
       onError: (err) =>
-        alert(`Diagnostic Error! Could not update status: ${err.message}`),
+        toast.error(
+          `Diagnostic Error! Could not update status: ${err.message}`,
+        ),
     },
   );
+
+  useEffect(() => {
+    if (userTenantId) {
+      socket.emit("join_tenant_room", userTenantId);
+    }
+
+    socket.on("appointment_created", (newAppointment) => {
+      // 🚨 YENİ: console.log yerine ekrandan süzülen Toast bildirimi!
+      toast.success(
+        `New appointment arrived: ${newAppointment.customer?.name}`,
+        {
+          style: {
+            borderRadius: "10px",
+            background: "#333",
+            color: "#fff",
+          },
+        },
+      );
+      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+    });
+
+    socket.on("appointment_deleted", (deletedId) => {
+      // 🚨 YENİ: Silinme için kırmızı hata bildirimi
+      toast.error(
+        `An appointment ${deletedId} , has been removed from the system.`,
+      );
+      refetch();
+    });
+
+    socket.on("appointment_updated", (updatedAppointment) => {
+      // 🚨 DÜZELTME: Artık paketi açıp hastanın adını (customer.name) kullanıyoruz!
+      toast.success(
+        `${updatedAppointment?.customer?.name || "A patient"}'s appointment details have been updated!`,
+        {
+          icon: "✨",
+        },
+      );
+      refetch();
+    });
+
+    socket.on("staff_deleted", (deletedId) => {
+      toast.success(
+        `A staff ${deletedId} member was removed. Updating appointment records... 🔄  `,
+        {
+          style: {
+            borderRadius: "10px",
+            background: "#333",
+            color: "#fff",
+          },
+        },
+      );
+      refetch();
+    });
+
+    // TEMİZLİK: Bileşen ekrandan kalkarsa kulaklığı çıkarıyoruz (Hafıza sızıntısını önler)
+    return () => {
+      socket.off("appointment_created");
+      socket.off("appointment_deleted");
+      socket.off("appointment_updated");
+      socket.off("staff_deleted");
+    };
+  }, [refetch, userTenantId]); // refetch veya tenantId değişirse hook güncellensin
 
   // --- HANDLERS ---
   const handleStatusUpdate = async (id: string, newStatus: string) => {
@@ -154,6 +238,7 @@ const AppointmentList = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 text-left">
+      <Toaster position="top-right" reverseOrder={false} />
       {/* --- 🩺 HEADER: Arama ve Başlık Bölgesi --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="space-y-1">

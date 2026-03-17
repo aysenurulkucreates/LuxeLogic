@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@apollo/client";
-import { Link } from "react-router-dom"; // 🩺 CRITICAL: Added the Link injection
+import { Link } from "react-router-dom";
 import {
   Search,
   LayoutGrid,
@@ -14,6 +14,20 @@ import {
 import { GET_MY_PRODUCTS } from "../../../graphql/queries/auth";
 import AddProductModal from "../../../components/shared/AddProductModal";
 import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
+import { io } from "socket.io-client";
+import toast, { Toaster } from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+
+const socket = io("http://localhost:4000");
+
+// User Interface'i
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  tenantId: string; // İşte altın anahtarımız!
+}
 
 interface Product {
   id: string;
@@ -29,6 +43,10 @@ const ProductList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  const { user } = useAuth() as { user: User | null };
+
+  const userTenantId = user?.tenantId;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -36,14 +54,76 @@ const ProductList: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { loading, error, data } = useQuery(GET_MY_PRODUCTS, {
+  const { loading, error, data, refetch } = useQuery(GET_MY_PRODUCTS, {
     variables: { searchTerm: debouncedSearchTerm },
   });
 
   const [deleteProduct] = useMutation(DELETE_PRODUCT, {
     refetchQueries: [{ query: GET_MY_PRODUCTS }],
-    onCompleted: () => alert("Product deleted successfully."),
+    onCompleted: () => toast.success("Product deleted successfully."),
   });
+
+  useEffect(() => {
+    if (userTenantId) {
+      socket.emit("join_tenant_room", userTenantId);
+    }
+
+    socket.on("product_created", (newProduct) => {
+      toast.success(`New product created: ${newProduct.name}`, {
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
+      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+    });
+
+    socket.on("product_deleted", (deletedId) => {
+      toast.success(`Product removed from the system: ${deletedId}`, {
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
+      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+    });
+
+    socket.on("product_updated", (updatedProduct) => {
+      toast.success(`Product ${updatedProduct.name} successfully updated`, {
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
+      refetch();
+    });
+
+    socket.on("sale_created", () => {
+      toast.success("A sale was just made! Stock levels updating... 💸", {
+        icon: "📉",
+      });
+      refetch(); // Stokları tazele!
+    });
+
+    // Satış iptal edildiğinde stoğu anında geri artıracak!
+    socket.on("sale_deleted", () => {
+      toast.success("A sale was cancelled! Stock levels restored... 🔄", {
+        icon: "📈",
+      });
+      refetch(); // Stokları tazele!
+    });
+
+    return () => {
+      socket.off("product_created");
+      socket.off("product_deleted");
+      socket.off("product_updated");
+      socket.off("sale_created");
+      socket.off("sale_deleted");
+    };
+  }, [refetch, userTenantId]);
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
@@ -80,6 +160,7 @@ const ProductList: React.FC = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500 text-left">
+      <Toaster position="top-right" reverseOrder={false} />
       {/* Search Bar Area */}
       <div className="relative max-w-md mb-12 group">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

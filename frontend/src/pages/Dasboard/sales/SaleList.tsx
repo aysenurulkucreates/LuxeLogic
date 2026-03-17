@@ -1,10 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, Banknote, Trash2, Calendar, Filter, Plus } from "lucide-react"; // 🚨 Plus eklendi
 import { GET_MY_SALES } from "../../../graphql/queries/auth";
 import { DELETE_SALE } from "../../../graphql/mutations/sales";
 import { useQuery, useMutation } from "@apollo/client";
 import AddSaleModal from "../../../components/shared/AddSaleModal";
+import { io } from "socket.io-client";
+import toast, { Toaster } from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+
+const socket = io("http://localhost:4000");
+
+// User Interface'i
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  tenantId: string; // İşte altın anahtarımız!
+}
 
 interface Product {
   id: string;
@@ -33,22 +47,69 @@ interface Sale {
 
 const SaleList = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
-  const { data, loading, error } = useQuery(GET_MY_SALES, {
+  const { user } = useAuth() as { user: User | null };
+
+  const userTenantId = user?.tenantId;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const { data, loading, error, refetch } = useQuery(GET_MY_SALES, {
     variables: { searchTerm },
   });
 
   const [deleteSale] = useMutation(DELETE_SALE, {
-    refetchQueries: [{ query: GET_MY_SALES, variables: { searchTerm } }],
+    refetchQueries: [
+      {
+        query: GET_MY_SALES,
+        variables: { searchTerm: debouncedSearchTerm },
+      },
+    ],
     onCompleted: () => {
-      alert("Sale successfully discharged from the system. 💉");
+      toast.success("Sale successfully discharged from the system. 💉");
     },
     onError: (err) => {
-      alert(`Emergency! Could not delete: ${err.message}`);
+      toast.error(`Emergency! Could not delete: ${err.message}`);
     },
   });
+
+  useEffect(() => {
+    if (userTenantId) {
+      socket.emit("join_tenant_room", userTenantId);
+    }
+
+    socket.on("sale_created", (newSale) => {
+      toast.success(
+        `New transaction: ${newSale?.quantity}x ${newSale?.product?.name} sold to ${newSale?.customer?.name || "Guest"}`,
+        {
+          icon: "💰",
+          style: { borderRadius: "10px", background: "#333", color: "#fff" },
+        },
+      );
+      refetch();
+    });
+
+    socket.on("sale_deleted", (deletedId) => {
+      toast.error(
+        `Transaction ${deletedId} cancelled. Stock levels restored! 🔄`,
+        {
+          style: { borderRadius: "10px", background: "#333", color: "#fff" },
+        },
+      );
+      refetch();
+    });
+
+    return () => {
+      socket.off("sale_created");
+      socket.off("sale_deleted");
+    };
+  }, [refetch, userTenantId]);
 
   const handleDelete = async (id: string) => {
     const confirmDelete = window.confirm(
@@ -79,6 +140,7 @@ const SaleList = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">
+      <Toaster position="top-right" reverseOrder={false} />
       {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
         <div>
