@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@apollo/client";
-import { Link } from "react-router-dom"; // 🩺 CRITICAL: Link injection added
+import { useMutation, useQuery, useApolloClient } from "@apollo/client";
+import { Link } from "react-router-dom";
 import {
   UserPlus,
   Pencil,
@@ -48,6 +48,7 @@ const StaffList: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
 
   const { user } = useAuth() as { user: User | null };
+  const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
 
@@ -77,14 +78,40 @@ const StaffList: React.FC = () => {
       toast.success(`Staff ${newStaff.name} successfully created`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
-      refetch();
+      client.cache.updateQuery(
+        {
+          query: GET_MY_STAFF,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            myStaff: [...existingData.myStaff, newStaff],
+          };
+        },
+      );
     });
 
     socket.on("staff_deleted", (deletedId) => {
-      toast.success(`Staff ${deletedId} successfully deleted`, {
+      toast.success(`Staff successfully deleted`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
-      refetch();
+      client.cache.updateQuery(
+        {
+          query: GET_MY_STAFF,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            myStaff: existingData.myStaff.filter(
+              (staff: Staff) => staff.id !== deletedId,
+            ),
+          };
+        },
+      );
     });
 
     socket.on("staff_updated", (updatedStaff) => {
@@ -99,7 +126,7 @@ const StaffList: React.FC = () => {
       socket.off("staff_deleted");
       socket.off("staff_updated");
     };
-  }, [refetch, userTenantId]);
+  }, [client, debouncedSearchTerm, refetch, userTenantId]);
 
   const handleEdit = (staff: Staff) => {
     setSelectedStaff(staff);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, useApolloClient } from "@apollo/client";
 import { GET_MY_CUSTOMERS } from "../../../graphql/queries/auth";
 import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
 import {
@@ -50,6 +50,7 @@ const CustomerList: React.FC = () => {
 
   // Gelen user'a "Sen bu kimliktesin" diyoruz ki tenantId'yi görsün.
   const { user } = useAuth() as { user: User | null };
+  const client = useApolloClient();
 
   // Anahtarı otomatik olarak giriş yapan kullanıcıdan alıyoruz
   const userTenantId = user?.tenantId;
@@ -87,7 +88,20 @@ const CustomerList: React.FC = () => {
           color: "#fff",
         },
       });
-      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+      // isteği yormamak için bu kodu kullanıyoruz, veriyi direkt apollodan alıyoruz.
+      client.cache.updateQuery(
+        {
+          query: GET_MY_CUSTOMERS,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+          // mevcut listeyi al, sonun ayeni hastayı ekle
+          return {
+            myCustomers: [...existingData.myCustomers, newCustomer],
+          };
+        },
+      );
     });
 
     // MÜŞTERİ SİLİNDİ SİNYALİ GELDİĞİNDE
@@ -96,7 +110,20 @@ const CustomerList: React.FC = () => {
       toast.error(
         `A customer ${deletedId} , has been removed from the system.`,
       );
-      refetch();
+      client.cache.updateQuery(
+        {
+          query: GET_MY_CUSTOMERS,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+          return {
+            myCustomers: existingData.myCustomers.filter(
+              (customer: Customer) => customer.id !== deletedId,
+            ),
+          };
+        },
+      );
     });
 
     // MÜŞTERİ GÜNCELLENDİ SİNYALİ GELDİĞİNDE
@@ -114,7 +141,7 @@ const CustomerList: React.FC = () => {
       socket.off("customer_deleted");
       socket.off("customer_updated");
     };
-  }, [refetch, userTenantId]); // refetch veya tenantId değişirse hook güncellensin
+  }, [client, debouncedSearchTerm, refetch, userTenantId]); // refetch veya tenantId değişirse hook güncellensin
 
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer);

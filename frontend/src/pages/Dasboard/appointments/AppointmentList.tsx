@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, useApolloClient } from "@apollo/client";
 import { useEffect, useState } from "react";
 import {
   GET_MY_APPOINTMENTS,
@@ -68,6 +68,7 @@ const AppointmentList = () => {
     useState<Appointment | null>(null);
 
   const { user } = useAuth() as { user: User | null };
+  const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
 
@@ -134,7 +135,19 @@ const AppointmentList = () => {
           },
         },
       );
-      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+      client.cache.updateQuery(
+        {
+          query: GET_MY_APPOINTMENTS,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            myAppointments: [...existingData.myAppointments, newAppointment],
+          };
+        },
+      );
     });
 
     socket.on("appointment_deleted", (deletedId) => {
@@ -142,7 +155,21 @@ const AppointmentList = () => {
       toast.error(
         `An appointment ${deletedId} , has been removed from the system.`,
       );
-      refetch();
+      client.cache.updateQuery(
+        {
+          query: GET_MY_APPOINTMENTS,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            myAppointments: existingData.myAppointments.filter(
+              (appointment: Appointment) => appointment.id !== deletedId,
+            ),
+          };
+        },
+      );
     });
 
     socket.on("appointment_updated", (updatedAppointment) => {
@@ -177,7 +204,7 @@ const AppointmentList = () => {
       socket.off("appointment_updated");
       socket.off("staff_deleted");
     };
-  }, [refetch, userTenantId]); // refetch veya tenantId değişirse hook güncellensin
+  }, [client, debouncedSearchTerm, refetch, userTenantId]);
 
   // --- HANDLERS ---
   const handleStatusUpdate = async (id: string, newStatus: string) => {

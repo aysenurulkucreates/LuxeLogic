@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, Banknote, Trash2, Calendar, Filter, Plus } from "lucide-react"; // 🚨 Plus eklendi
+import { Search, Banknote, Trash2, Calendar, Filter, Plus } from "lucide-react";
 import { GET_MY_SALES } from "../../../graphql/queries/auth";
 import { DELETE_SALE } from "../../../graphql/mutations/sales";
-import { useQuery, useMutation } from "@apollo/client";
+import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import AddSaleModal from "../../../components/shared/AddSaleModal";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
@@ -52,6 +52,7 @@ const SaleList = () => {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   const { user } = useAuth() as { user: User | null };
+  const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
 
@@ -60,7 +61,7 @@ const SaleList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { data, loading, error, refetch } = useQuery(GET_MY_SALES, {
+  const { data, loading, error } = useQuery(GET_MY_SALES, {
     variables: { searchTerm },
   });
 
@@ -92,24 +93,47 @@ const SaleList = () => {
           style: { borderRadius: "10px", background: "#333", color: "#fff" },
         },
       );
-      refetch();
+      client.cache.updateQuery(
+        {
+          query: GET_MY_SALES,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            mySales: [...existingData.mySales, newSale],
+          };
+        },
+      );
     });
 
     socket.on("sale_deleted", (deletedId) => {
-      toast.error(
-        `Transaction ${deletedId} cancelled. Stock levels restored! 🔄`,
+      toast.error(`Transaction cancelled. Stock levels restored! 🔄`, {
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
+      client.cache.updateQuery(
         {
-          style: { borderRadius: "10px", background: "#333", color: "#fff" },
+          query: GET_MY_SALES,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            mySales: existingData.mySales.filter(
+              (sale: Sale) => sale.id !== deletedId,
+            ),
+          };
         },
       );
-      refetch();
     });
 
     return () => {
       socket.off("sale_created");
       socket.off("sale_deleted");
     };
-  }, [refetch, userTenantId]);
+  }, [client, debouncedSearchTerm, userTenantId]);
 
   const handleDelete = async (id: string) => {
     const confirmDelete = window.confirm(

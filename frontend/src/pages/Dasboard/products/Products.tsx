@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, useApolloClient } from "@apollo/client";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -44,6 +44,7 @@ const ProductList: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const { user } = useAuth() as { user: User | null };
+  const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
 
@@ -76,18 +77,44 @@ const ProductList: React.FC = () => {
           color: "#fff",
         },
       });
-      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+      client.cache.updateQuery(
+        {
+          query: GET_MY_PRODUCTS,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            myProducts: [...existingData.myProducts, newProduct],
+          };
+        },
+      );
     });
 
     socket.on("product_deleted", (deletedId) => {
-      toast.success(`Product removed from the system: ${deletedId}`, {
+      toast.success("Product successfully removed from the inventory. 🗑️", {
         style: {
           borderRadius: "10px",
           background: "#333",
           color: "#fff",
         },
       });
-      refetch(); // Apollo'ya "Verileri sessizce tazele" diyoruz!
+      client.cache.updateQuery(
+        {
+          query: GET_MY_PRODUCTS,
+          variables: { searchTerm: debouncedSearchTerm },
+        },
+        (existingData) => {
+          if (!existingData) return null;
+
+          return {
+            myProducts: existingData.myProducts.filter(
+              (product: Product) => product.id !== deletedId,
+            ),
+          };
+        },
+      );
     });
 
     socket.on("product_updated", (updatedProduct) => {
@@ -123,7 +150,7 @@ const ProductList: React.FC = () => {
       socket.off("sale_created");
       socket.off("sale_deleted");
     };
-  }, [refetch, userTenantId]);
+  }, [client, debouncedSearchTerm, refetch, userTenantId]);
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
