@@ -10,6 +10,7 @@ import {
   UserX,
   Mail,
   Award,
+  Lock,
 } from "lucide-react";
 import { GET_MY_STAFF } from "../../../graphql/queries/auth";
 import { DELETE_STAFF } from "../../../graphql/mutations/staff";
@@ -46,6 +47,7 @@ const StaffList: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
 
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
@@ -121,20 +123,47 @@ const StaffList: React.FC = () => {
       refetch();
     });
 
+    socket.on("record_locked", ({ recordId }) => {
+      setLockedRecords((prev) => [...prev, recordId]);
+    });
+
+    socket.on("record_unlocked", ({ recordId }) => {
+      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
+    });
+
     return () => {
       socket.off("staff_created");
       socket.off("staff_deleted");
       socket.off("staff_updated");
+      socket.off("record_locked");
+      socket.off("record_unlocked");
     };
   }, [client, debouncedSearchTerm, refetch, userTenantId]);
 
   const handleEdit = (staff: Staff) => {
     setSelectedStaff(staff);
+
+    if (userTenantId) {
+      socket.emit("lock_record", {
+        tenantId: user.tenantId,
+        recordId: staff.id,
+        userEmail: user?.email || "Staff",
+      });
+    }
+
     setIsModalOpen(true);
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
+
+    if (selectedStaff?.id && userTenantId) {
+      socket.emit("unlock_record", {
+        tenantId: userTenantId,
+        recordId: selectedStaff.id,
+      });
+    }
+
     setSelectedStaff(null);
   };
 
@@ -216,98 +245,163 @@ const StaffList: React.FC = () => {
 
         <div className="divide-y divide-slate-50">
           {data?.myStaff?.length > 0 ? (
-            data.myStaff.map((staff: Staff) => (
-              <div
-                key={staff.id}
-                className="grid grid-cols-6 px-10 py-9 items-center hover:bg-indigo-50/30 transition-all group"
-              >
-                {/* 🔗 THE MASTER LINK: Name & Avatar */}
-                <div className="col-span-2">
-                  <Link
-                    to={`/staff/${staff.id}`}
-                    className="flex items-center gap-5 w-fit group/link"
-                  >
-                    <div className="w-16 h-16 rounded-3xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-100 group-hover/link:scale-110 transition-transform duration-300">
-                      {staff.imageUrl ? (
-                        <img
-                          src={staff.imageUrl}
-                          alt={staff.name}
-                          className="w-full h-full object-cover rounded-3xl"
-                        />
-                      ) : (
-                        staff.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-black text-slate-800 text-xl group-hover/link:text-indigo-600 transition-colors">
-                        {staff.name}
-                      </span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div
-                          className={`w-2 h-2 rounded-full ${staff.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`}
-                        />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          {staff.isActive ? "Active Duty" : "On Leave"}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                </div>
+            data.myStaff.map((staff: Staff) => {
+              // 🚨 ŞEF CERRAH RADARI: Bu personel kilitli mi?
+              const isLocked = lockedRecords.includes(staff.id);
 
-                {/* Email & Phone */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
-                    <Mail size={14} className="text-indigo-400" />
-                    {staff.email}
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
-                    <Phone size={14} className="text-indigo-400" />
-                    {staff.phone}
-                  </div>
-                </div>
-
-                {/* Expertise */}
-                <div>
-                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-                    <Award size={14} />
-                    {staff.expertise}
-                  </span>
-                </div>
-
-                {/* Work Days */}
-                <div className="flex flex-wrap gap-1.5">
-                  {staff.workDays?.slice(0, 3).map((day, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[9px] bg-slate-100 px-3 py-1.5 rounded-lg font-black text-slate-400 uppercase tracking-widest"
+              return (
+                <div
+                  key={staff.id}
+                  className={`grid grid-cols-6 px-10 py-9 items-center transition-all group ${
+                    isLocked
+                      ? "bg-slate-50/50 opacity-60 grayscale-20 pointer-events-none"
+                      : "hover:bg-indigo-50/30 bg-white"
+                  }`}
+                >
+                  {/* 🔗 THE MASTER LINK: Name & Avatar */}
+                  <div className="col-span-2">
+                    <Link
+                      to={`/staff/${staff.id}`}
+                      className={`flex items-center gap-5 w-fit group/link ${isLocked ? "pointer-events-none" : ""}`}
                     >
-                      {day.substring(0, 3)}
-                    </span>
-                  ))}
-                  {staff.workDays?.length > 3 && (
-                    <span className="text-[9px] text-indigo-400 font-black">
-                      + {staff.workDays.length - 3}
-                    </span>
-                  )}
-                </div>
+                      <div
+                        className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-2xl shadow-lg transition-transform duration-300 ${
+                          isLocked
+                            ? "bg-slate-300 text-slate-100"
+                            : "bg-indigo-600 text-white shadow-indigo-100 group-hover/link:scale-110"
+                        }`}
+                      >
+                        {staff.imageUrl ? (
+                          <img
+                            src={staff.imageUrl}
+                            alt={staff.name}
+                            className={`w-full h-full object-cover rounded-3xl ${isLocked ? "grayscale" : ""}`}
+                          />
+                        ) : (
+                          staff.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                        <span
+                          className={`font-black text-xl transition-colors ${
+                            isLocked
+                              ? "text-slate-500"
+                              : "text-slate-800 group-hover/link:text-indigo-600"
+                          }`}
+                        >
+                          {staff.name}
+                        </span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              isLocked
+                                ? "bg-slate-300"
+                                : staff.isActive
+                                  ? "bg-emerald-500 animate-pulse"
+                                  : "bg-slate-300"
+                            }`}
+                          />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            {isLocked
+                              ? "Editing..."
+                              : staff.isActive
+                                ? "Active Duty"
+                                : "On Leave"}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
 
-                {/* Actions */}
-                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  <button
-                    onClick={() => handleEdit(staff)}
-                    className="p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all"
+                  {/* Email & Phone */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
+                      <Mail
+                        size={14}
+                        className={
+                          isLocked ? "text-slate-400" : "text-indigo-400"
+                        }
+                      />
+                      {staff.email}
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
+                      <Phone
+                        size={14}
+                        className={
+                          isLocked ? "text-slate-400" : "text-indigo-400"
+                        }
+                      />
+                      {staff.phone}
+                    </div>
+                  </div>
+
+                  {/* Expertise */}
+                  <div>
+                    <span
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                        isLocked
+                          ? "bg-slate-50 text-slate-400 border-slate-100"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                      }`}
+                    >
+                      <Award size={14} />
+                      {staff.expertise}
+                    </span>
+                  </div>
+
+                  {/* Work Days */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {staff.workDays?.slice(0, 3).map((day, idx) => (
+                      <span
+                        key={idx}
+                        className={`text-[9px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest ${
+                          isLocked
+                            ? "bg-slate-50 text-slate-300"
+                            : "bg-slate-100 text-slate-400"
+                        }`}
+                      >
+                        {day.substring(0, 3)}
+                      </span>
+                    ))}
+                    {staff.workDays?.length > 3 && (
+                      <span
+                        className={`text-[9px] font-black ${isLocked ? "text-slate-300" : "text-indigo-400"}`}
+                      >
+                        + {staff.workDays.length - 3}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 🚨 KİLİT AKSİYONLARI */}
+                  <div
+                    className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
-                    <Pencil size={20} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(staff.id)}
-                    className="p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-rose-600 hover:border-rose-100 transition-all"
-                  >
-                    <Trash2 size={20} />
-                  </button>
+                    <button
+                      onClick={() => !isLocked && handleEdit(staff)}
+                      disabled={isLocked}
+                      className={`p-4 shadow-sm border rounded-2xl transition-all ${
+                        isLocked
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
+                      }`}
+                    >
+                      {isLocked ? <Lock size={20} /> : <Pencil size={20} />}
+                    </button>
+                    <button
+                      onClick={() => !isLocked && handleDelete(staff.id)}
+                      disabled={isLocked}
+                      className={`p-4 shadow-sm border rounded-2xl transition-all ${
+                        isLocked
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
+                      }`}
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="py-40 text-center flex flex-col items-center gap-6">
               <div className="p-10 bg-slate-50 rounded-full">

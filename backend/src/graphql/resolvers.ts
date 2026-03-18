@@ -301,7 +301,7 @@ export const resolvers = {
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      if (!user) throw new Error("Not authenticated!");
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -329,6 +329,7 @@ export const resolvers = {
         include: {
           product: true,
           customer: true,
+          tenant: true,
         },
         orderBy: { createdAt: "desc" },
       });

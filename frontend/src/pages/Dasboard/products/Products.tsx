@@ -10,6 +10,7 @@ import {
   Trash2,
   PackagePlus,
   PackageSearch,
+  Lock,
 } from "lucide-react";
 import { GET_MY_PRODUCTS } from "../../../graphql/queries/auth";
 import AddProductModal from "../../../components/shared/AddProductModal";
@@ -42,6 +43,7 @@ const ProductList: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
 
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
@@ -143,22 +145,47 @@ const ProductList: React.FC = () => {
       refetch(); // Stokları tazele!
     });
 
+    socket.on("record_locked", ({ recordId }) => {
+      setLockedRecords((prev) => [...prev, recordId]);
+    });
+
+    socket.on("record_unlocked", ({ recordId }) => {
+      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
+    });
+
     return () => {
       socket.off("product_created");
       socket.off("product_deleted");
       socket.off("product_updated");
       socket.off("sale_created");
       socket.off("sale_deleted");
+      socket.off("record_locked");
+      socket.off("record_unlocked");
     };
   }, [client, debouncedSearchTerm, refetch, userTenantId]);
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setIsModalOpen(true);
+
+    if (userTenantId) {
+      socket.emit("lock_record", {
+        tenantId: user.tenantId,
+        recordId: product.id,
+        userEmail: user?.email || "Staff",
+      });
+    }
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
+
+    if (selectedProduct?.id && userTenantId) {
+      socket.emit("unlock_record", {
+        tenantId: userTenantId,
+        recordId: selectedProduct.id,
+      });
+    }
     setSelectedProduct(null);
   };
 
@@ -236,69 +263,114 @@ const ProductList: React.FC = () => {
 
         <div className="divide-y divide-slate-50">
           {data?.myProducts?.length > 0 ? (
-            data.myProducts.map((product: Product) => (
-              <div
-                key={product.id}
-                className="grid grid-cols-5 px-10 py-8 items-center hover:bg-indigo-50/30 transition-all group"
-              >
-                {/* 🔗 THE CRITICAL LINK: Wrapping Name and Avatar */}
-                <div className="col-span-2">
-                  <Link
-                    to={`/products/${product.id}`}
-                    className="flex items-center gap-5 w-fit group/link"
-                  >
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-lg group-hover/link:scale-110 transition-transform duration-300">
-                      {product.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-black text-slate-800 text-lg group-hover/link:text-indigo-600 transition-colors">
-                        {product.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
-                        SKU #{product.id.slice(-6)}
-                      </span>
-                    </div>
-                  </Link>
-                </div>
+            data.myProducts.map((product: Product) => {
+              // 🚨 ŞEF CERRAH RADARI: Bu ürün kilitli mi?
+              const isLocked = lockedRecords.includes(product.id);
 
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                  <div className="p-2 bg-slate-100 rounded-xl text-slate-500">
-                    <LayoutGrid size={16} />
+              return (
+                <div
+                  key={product.id}
+                  className={`grid grid-cols-5 px-10 py-8 items-center transition-all group ${
+                    isLocked
+                      ? "bg-slate-50/50 opacity-60 grayscale-20 pointer-events-none"
+                      : "hover:bg-indigo-50/30 bg-white"
+                  }`}
+                >
+                  {/* 🔗 THE CRITICAL LINK: Wrapping Name and Avatar */}
+                  <div className="col-span-2">
+                    <Link
+                      to={`/products/${product.id}`}
+                      className={`flex items-center gap-5 w-fit group/link ${isLocked ? "pointer-events-none" : ""}`}
+                    >
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg transition-transform duration-300 ${
+                          isLocked
+                            ? "bg-slate-300 text-slate-100"
+                            : "bg-indigo-600 text-white group-hover/link:scale-110"
+                        }`}
+                      >
+                        {product.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span
+                          className={`font-black text-lg transition-colors ${
+                            isLocked
+                              ? "text-slate-500"
+                              : "text-slate-800 group-hover/link:text-indigo-600"
+                          }`}
+                        >
+                          {product.name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                          SKU #{product.id.slice(-6)}
+                        </span>
+                      </div>
+                    </Link>
                   </div>
-                  {product.category}
-                </div>
 
-                <div className="flex flex-col gap-2 text-left">
-                  <div className="flex items-center gap-2 text-lg font-black text-slate-900">
-                    <Banknote size={18} className="text-emerald-500" />₺
-                    {product.price.toLocaleString()}
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                    <div className="p-2 bg-slate-100 rounded-xl text-slate-500">
+                      <LayoutGrid size={16} />
+                    </div>
+                    {product.category}
                   </div>
+
+                  <div className="flex flex-col gap-2 text-left">
+                    <div
+                      className={`flex items-center gap-2 text-lg font-black ${isLocked ? "text-slate-500" : "text-slate-900"}`}
+                    >
+                      <Banknote
+                        size={18}
+                        className={
+                          isLocked ? "text-slate-400" : "text-emerald-500"
+                        }
+                      />
+                      ₺{product.price.toLocaleString()}
+                    </div>
+                    <div
+                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
+                        isLocked
+                          ? "text-slate-400"
+                          : product.stock > 10
+                            ? "text-slate-400"
+                            : "text-rose-600"
+                      }`}
+                    >
+                      <Boxes size={14} />
+                      {product.stock} in stock
+                    </div>
+                  </div>
+
+                  {/* 🚨 KİLİT AKSİYONLARI */}
                   <div
-                    className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                      product.stock > 10 ? "text-slate-400" : "text-rose-600"
-                    }`}
+                    className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
-                    <Boxes size={14} />
-                    {product.stock} in stock
+                    <button
+                      onClick={() => !isLocked && handleEdit(product)}
+                      disabled={isLocked}
+                      className={`p-3 shadow-sm border rounded-xl transition-all ${
+                        isLocked
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
+                      }`}
+                    >
+                      {isLocked ? <Lock size={20} /> : <Pencil size={20} />}
+                    </button>
+                    <button
+                      onClick={() => !isLocked && handleDelete(product.id)}
+                      disabled={isLocked}
+                      className={`p-3 shadow-sm border rounded-xl transition-all ${
+                        isLocked
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
+                      }`}
+                    >
+                      <Trash2 size={20} />
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  <button
-                    onClick={() => handleEdit(product)}
-                    className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all"
-                  >
-                    <Pencil size={20} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product.id)}
-                    className="p-3 bg-white shadow-sm border border-slate-100 rounded-xl text-slate-400 hover:text-rose-600 hover:border-rose-100 transition-all"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="py-32 text-center flex flex-col items-center gap-6">
               <div className="p-8 bg-slate-50 rounded-full">

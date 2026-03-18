@@ -10,27 +10,22 @@ import {
   Pencil,
   Trash2,
   Users,
+  Lock,
 } from "lucide-react";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
-
-// 🚨 1. ADIM: Telsizi (Socket) ithal ediyoruz
 import { io } from "socket.io-client";
-
-// 🚨 YENİ: React Hot Toast'u (Altın Musluk) ithal ediyoruz!
 import toast, { Toaster } from "react-hot-toast";
 
-// 🚨 2. ADIM: Telsizi backend'e bağlıyoruz (Sayfa yenilenene kadar tek bağlantı)
 const socket = io("http://localhost:4000");
 
-// User Interface'i
 interface User {
   id: string;
   email: string;
   name?: string;
   role: string;
-  tenantId: string; // İşte altın anahtarımız!
+  tenantId: string;
 }
 
 interface Customer {
@@ -48,11 +43,11 @@ const CustomerList: React.FC = () => {
     null,
   );
 
-  // Gelen user'a "Sen bu kimliktesin" diyoruz ki tenantId'yi görsün.
+  //  Telsizden gelen kilitli hasta ID'lerini tutacağımız radar hafızamız
+  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
+
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
-
-  // Anahtarı otomatik olarak giriş yapan kullanıcıdan alıyoruz
   const userTenantId = user?.tenantId;
 
   useEffect(() => {
@@ -60,7 +55,6 @@ const CustomerList: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 🚨 3. ADIM: Apollo'dan 'refetch' fonksiyonunu çekiyoruz ki canlı güncelleyebilelim
   const { loading, error, data, refetch } = useQuery(GET_MY_CUSTOMERS, {
     variables: { searchTerm: debouncedSearchTerm },
   });
@@ -68,27 +62,18 @@ const CustomerList: React.FC = () => {
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     refetchQueries: [{ query: GET_MY_CUSTOMERS }],
     onCompleted: () =>
-      toast.success("Customer successfully discharged from the system."), // YENİ: Alert yerine Toast kullandık
+      toast.success("Customer successfully discharged from the system."),
   });
 
-  // 🚨 4. ADIM: ŞOV ZAMANI! Socket.io Kulaklığını Takıyoruz
   useEffect(() => {
-    // Önce Odaya (Kendi Firmamızın Telsiz Frekansına) giriyoruz
     if (userTenantId) {
       socket.emit("join_tenant_room", userTenantId);
     }
 
-    // YENİ MÜŞTERİ SİNYALİ GELDİĞİNDE
     socket.on("customer_created", (newCustomer) => {
-      // 🚨 YENİ: console.log yerine ekrandan süzülen Toast bildirimi!
       toast.success(`New customer arrived: ${newCustomer.name}`, {
-        style: {
-          borderRadius: "10px",
-          background: "#333",
-          color: "#fff",
-        },
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
-      // isteği yormamak için bu kodu kullanıyoruz, veriyi direkt apollodan alıyoruz.
       client.cache.updateQuery(
         {
           query: GET_MY_CUSTOMERS,
@@ -96,20 +81,13 @@ const CustomerList: React.FC = () => {
         },
         (existingData) => {
           if (!existingData) return null;
-          // mevcut listeyi al, sonun ayeni hastayı ekle
-          return {
-            myCustomers: [...existingData.myCustomers, newCustomer],
-          };
+          return { myCustomers: [...existingData.myCustomers, newCustomer] };
         },
       );
     });
 
-    // MÜŞTERİ SİLİNDİ SİNYALİ GELDİĞİNDE
     socket.on("customer_deleted", (deletedId) => {
-      // 🚨 YENİ: Silinme için kırmızı hata bildirimi
-      toast.error(
-        `A customer ${deletedId} , has been removed from the system.`,
-      );
+      toast.error(`A customer has been removed from the system.`);
       client.cache.updateQuery(
         {
           query: GET_MY_CUSTOMERS,
@@ -126,39 +104,66 @@ const CustomerList: React.FC = () => {
       );
     });
 
-    // MÜŞTERİ GÜNCELLENDİ SİNYALİ GELDİĞİNDE
     socket.on("customer_updated", (updatedCustomer) => {
-      // 🚨 YENİ: Güncelleme için pırıltılı bildirim
       toast.success(`${updatedCustomer.name}'s profile has been updated!`, {
         icon: "✨",
       });
       refetch();
     });
 
-    // TEMİZLİK: Bileşen ekrandan kalkarsa kulaklığı çıkarıyoruz (Hafıza sızıntısını önler)
+    // Telsizden gelen kilit anonslarını dinliyoruz!
+    socket.on("record_locked", ({ recordId }) => {
+      // Birisi dosyayı açtı, hemen ID'yi radarımıza (listemize) ekle
+      setLockedRecords((prev) => [...prev, recordId]);
+    });
+
+    socket.on("record_unlocked", ({ recordId }) => {
+      // İşlem bitti, o ID'yi radarımızdan çıkar
+      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
+    });
+
     return () => {
       socket.off("customer_created");
       socket.off("customer_deleted");
       socket.off("customer_updated");
+      // 🚨 Temizliği unutmuyoruz
+      socket.off("record_locked");
+      socket.off("record_unlocked");
     };
-  }, [client, debouncedSearchTerm, refetch, userTenantId]); // refetch veya tenantId değişirse hook güncellensin
+  }, [client, debouncedSearchTerm, refetch, userTenantId]);
 
+  //  Düzenleme başlayınca telsize fısılda!
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer);
     setIsModalOpen(true);
+
+    // Telsiz Anonsu: "Ben bu dosyayı ameliyata aldım, kitleyin!"
+    if (userTenantId) {
+      socket.emit("lock_record", {
+        tenantId: userTenantId,
+        recordId: customer.id,
+        userEmail: user?.email || "Staff",
+      });
+    }
   };
 
+  //  Modal kapanınca telsizden kilidi aç!
   const handleClose = () => {
     setIsModalOpen(false);
+
+    // Telsiz Anonsu: "Ameliyat bitti, dosyayı serbest bırakın."
+    if (selectedCustomer?.id && userTenantId) {
+      socket.emit("unlock_record", {
+        tenantId: userTenantId,
+        recordId: selectedCustomer.id,
+      });
+    }
+
     setSelectedCustomer(null);
   };
 
   const handleDelete = async (id: string) => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete this customer? This record will be permanently lost!",
-      )
-    ) {
+    if (window.confirm("Are you sure you want to delete this customer?")) {
       await deleteCustomer({ variables: { id } });
     }
   };
@@ -169,7 +174,6 @@ const CustomerList: React.FC = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     );
-
   if (error)
     return (
       <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100 mt-10 font-bold">
@@ -179,10 +183,9 @@ const CustomerList: React.FC = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
-      {/* 🚨 YENİ: Toast bildirimlerinin ekranda görünebilmesi için bu motoru buraya koyuyoruz! */}
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 🔍 Search & Actions Area */}
+      {/* Arama ve Buton Kısmı */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
         <div className="relative max-w-md w-full group">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -196,7 +199,6 @@ const CustomerList: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-
         <button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-black active:scale-95"
@@ -206,7 +208,6 @@ const CustomerList: React.FC = () => {
         </button>
       </div>
 
-      {/* 📊 Header Section */}
       <div className="mb-8 flex items-end justify-between">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">
@@ -214,7 +215,7 @@ const CustomerList: React.FC = () => {
           </h1>
           <p className="text-slate-500 text-sm mt-2 font-bold uppercase tracking-widest flex items-center gap-2">
             <Users size={16} className="text-indigo-500" />
-            Total Registered:
+            Total Registered:{" "}
             <span className="text-indigo-600">
               {data?.myCustomers?.length || 0}
             </span>
@@ -222,7 +223,6 @@ const CustomerList: React.FC = () => {
         </div>
       </div>
 
-      {/* 🏗️ The "Luxe" Table Container */}
       <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
         <div className="grid grid-cols-4 bg-slate-50/80 px-10 py-6 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
           <span>Customer Identity</span>
@@ -233,72 +233,103 @@ const CustomerList: React.FC = () => {
 
         <div className="divide-y divide-slate-50">
           {data?.myCustomers?.length > 0 ? (
-            data.myCustomers.map((customer: Customer) => (
-              <div
-                key={customer.id}
-                className="grid grid-cols-4 px-10 py-8 items-center hover:bg-indigo-50/20 transition-all group"
-              >
-                {/* 👤 Identity Section */}
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100 group-hover:scale-110 transition-transform">
-                    {customer.name.charAt(0).toUpperCase()}
+            data.myCustomers.map((customer: Customer) => {
+              //  Radar kontrolü! Bu hasta şu an kilitli mi?
+              const isLocked = lockedRecords.includes(customer.id);
+
+              return (
+                <div
+                  key={customer.id}
+                  // Eğer kilitliyse arka planı soluklaştırıyoruz, değilse normal hover efekti
+                  className={`grid grid-cols-4 px-10 py-8 items-center transition-all group ${
+                    isLocked
+                      ? "bg-slate-50/50 opacity-60 grayscale-20"
+                      : "hover:bg-indigo-50/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100 group-hover:scale-110 transition-transform">
+                      {customer.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <Link
+                        to={`/customers/${customer.id}`}
+                        className={`font-bold text-lg leading-none mb-1 transition-colors ${
+                          isLocked
+                            ? "text-slate-500 pointer-events-none"
+                            : "text-slate-800 hover:text-indigo-600 cursor-pointer"
+                        }`}
+                      >
+                        {customer.name}
+                      </Link>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        ID: {customer.id.slice(-6)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col text-left">
-                    <Link
-                      to={`/customers/${customer.id}`}
-                      className="font-bold text-slate-800 text-lg leading-none mb-1 hover:text-indigo-600 transition-colors cursor-pointer"
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                      <div className="p-1.5 bg-slate-100 rounded-lg text-slate-400">
+                        <Mail size={14} />
+                      </div>
+                      {customer.email}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                      <div className="p-1.5 bg-slate-100 rounded-lg text-slate-400">
+                        <Phone size={14} />
+                      </div>
+                      {customer.phone}
+                    </div>
+                  </div>
+
+                  {/*  Kilitliyse ekranda Kırmızı Kilit gösteriyoruz! */}
+                  <div>
+                    {isLocked ? (
+                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-black uppercase tracking-tighter">
+                        <Lock size={12} />
+                        Editing...
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-tighter">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        Verified
+                      </span>
+                    )}
+                  </div>
+
+                  {/*  Kilitliyse Kalem butonunu pasif yapıyoruz! */}
+                  <div
+                    className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                  >
+                    <button
+                      onClick={() => !isLocked && handleEdit(customer)}
+                      disabled={isLocked}
+                      className={`p-3.5 shadow-sm border rounded-2xl transition-all ${
+                        isLocked
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200"
+                      }`}
                     >
-                      {customer.name}
-                    </Link>
-                    <span className="text-[10px] font-mono text-slate-400">
-                      ID: {customer.id.slice(-6)}
-                    </span>
+                      {isLocked ? <Lock size={18} /> : <Pencil size={18} />}
+                    </button>
+
+                    <button
+                      onClick={() => !isLocked && handleDelete(customer.id)}
+                      disabled={isLocked}
+                      className={`p-3.5 shadow-sm border rounded-2xl transition-all ${
+                        isLocked
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-200"
+                      }`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
-
-                {/* ✉️ Communication Section */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                    <div className="p-1.5 bg-slate-100 rounded-lg text-slate-400 group-hover:text-indigo-500 transition-colors">
-                      <Mail size={14} />
-                    </div>
-                    {customer.email}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                    <div className="p-1.5 bg-slate-100 rounded-lg text-slate-400 group-hover:text-indigo-500 transition-colors">
-                      <Phone size={14} />
-                    </div>
-                    {customer.phone}
-                  </div>
-                </div>
-
-                {/* ✨ Status Section */}
-                <div>
-                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-tighter">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                    Verified
-                  </span>
-                </div>
-
-                {/* ⚙️ Actions Section */}
-                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  <button
-                    onClick={() => handleEdit(customer)}
-                    className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all"
-                  >
-                    <Pencil size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(customer.id)}
-                    className="p-3.5 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-all"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
-            /* 🏜️ Empty State */
             <div className="py-32 text-center flex flex-col items-center gap-4">
               <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-2">
                 <Search size={48} />
@@ -315,7 +346,6 @@ const CustomerList: React.FC = () => {
         </div>
       </div>
 
-      {/* 🚀 Modal Integration with "Key" trick */}
       <AddCustomerModal
         key={selectedCustomer?.id || "new-customer"}
         isOpen={isModalOpen}

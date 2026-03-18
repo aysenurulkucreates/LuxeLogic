@@ -39,17 +39,49 @@ app.use(
   }) as any,
 );
 
+// 🚨 SUNUCUNUN HAFIZASI
+// Hangi telsiz (socket.id), hangi hastanede (tenantId), hangi dosyayı (recordId) kilitledi?
+const lockedRecords = new Map();
+
 io.on("connection", (socket) => {
   console.log("🚀 Client connected to Socket.io! ID:", socket.id);
 
-  // 🚨 YENİ: Frontend "Ben geldim, benim şirket kodum bu" dediğinde onu odaya alıyoruz!
   socket.on("join_tenant_room", (tenantId) => {
     socket.join(tenantId);
     console.log(`🏥 The radio joined room number ${socket.id}, [${tenantId}]!`);
   });
 
+  // 🔒 1. DÜZENLEME BAŞLADI (KİLİTLE)
+  socket.on("lock_record", ({ tenantId, recordId, userEmail }) => {
+    // Hafızaya yaz: "Bu adam, bu dosyayı ameliyata aldı!"
+    lockedRecords.set(socket.id, { tenantId, recordId });
+    socket.broadcast
+      .to(tenantId)
+      .emit("record_locked", { recordId, lockedBy: userEmail });
+  });
+
+  // 🔓 2. DÜZENLEME BİTTİ (KİLİDİ AÇ)
+  socket.on("unlock_record", ({ tenantId, recordId }) => {
+    // İş bitti, dosyayı hafızadan sil
+    lockedRecords.delete(socket.id);
+    socket.broadcast.to(tenantId).emit("record_unlocked", { recordId });
+  });
+
+  // 🚨 3. İNTERNET KOPTUĞUNDA ÇALIŞAN "HAYAT KURTARAN" KOD (Disconnect)
   socket.on("disconnect", () => {
-    console.log(" Client disconnected.");
+    console.log(" Client disconnected.", socket.id);
+
+    // Eğer interneti kopan adamın elinde kilitli bir dosya varsa:
+    if (lockedRecords.has(socket.id)) {
+      const { tenantId, recordId } = lockedRecords.get(socket.id);
+
+      // Herkese otomatik anons geç: "Adamın neti gitti, kilidi kırın!"
+      socket.broadcast.to(tenantId).emit("record_unlocked", { recordId });
+
+      // Temizlik yap
+      lockedRecords.delete(socket.id);
+      console.log(`🔌 Internet dropped! Auto-unlocked record: ${recordId}`);
+    }
   });
 });
 

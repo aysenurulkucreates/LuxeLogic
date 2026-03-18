@@ -132,6 +132,8 @@ const SaleList = () => {
     return () => {
       socket.off("sale_created");
       socket.off("sale_deleted");
+      socket.off("record_locked");
+      socket.off("record_unlocked");
     };
   }, [client, debouncedSearchTerm, userTenantId]);
 
