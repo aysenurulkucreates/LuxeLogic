@@ -74,6 +74,7 @@ export const GET_MY_STAFF = gql`
       isActive
       imageUrl
       bio
+      role
     }
   }
 `;
@@ -90,6 +91,7 @@ export const GET_STAFF = gql`
       isActive
       imageUrl
       bio
+      role
       tenantId
     }
   }

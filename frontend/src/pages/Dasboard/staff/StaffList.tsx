@@ -9,7 +9,7 @@ import {
   Phone,
   UserX,
   Mail,
-  Award,
+  ShieldAlert,
   Lock,
 } from "lucide-react";
 import { GET_MY_STAFF } from "../../../graphql/queries/auth";
@@ -40,6 +40,7 @@ interface Staff {
   isActive: boolean;
   imageUrl?: string;
   bio?: string;
+  role: string; // 🚨 Rolü de dahil ettik ki listede okuyabilelim
 }
 
 const StaffList: React.FC = () => {
@@ -177,6 +178,38 @@ const StaffList: React.FC = () => {
     }
   };
 
+  // 🚨 Rol İsimlerini Ekrana Güzel Basmak İçin Minik Bir Sözlük (Helper)
+  const formatRole = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return "System Architect";
+      case "TENANT_ADMIN":
+        return "Clinic Manager";
+      case "DOCTOR":
+        return "Doctor / Specialist";
+      case "NURSE":
+        return "Nurse / Assistant";
+      case "STAFF":
+        return "Secretary / Reception";
+      default:
+        return role;
+    }
+  };
+
+  // 🚨 Role Göre Renk Ayarlamak İçin (Kurumsal Dokunuş 💅)
+  const getRoleStyle = (role: string) => {
+    switch (role) {
+      case "DOCTOR":
+        return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      case "TENANT_ADMIN":
+        return "bg-rose-50 text-rose-700 border-rose-100";
+      case "NURSE":
+        return "bg-blue-50 text-blue-700 border-blue-100";
+      default:
+        return "bg-slate-50 text-slate-600 border-slate-200";
+    }
+  };
+
   if (loading)
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-[#F8FAFC]">
@@ -219,7 +252,7 @@ const StaffList: React.FC = () => {
           className="flex items-center justify-center gap-3 bg-indigo-600 text-white px-10 py-4 rounded-[1.8rem] hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-black uppercase text-xs tracking-widest active:scale-95"
         >
           <UserPlus size={18} />
-          Add New Specialist
+          Add New Professional
         </button>
       </div>
 
@@ -235,12 +268,13 @@ const StaffList: React.FC = () => {
 
       {/* --- TABLE CONTAINER --- */}
       <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)] border border-slate-50 overflow-hidden">
+        {/* 🚨 YENİ VE JİLET GİBİ KURUMSAL TABLO BAŞLIKLARI */}
         <div className="grid grid-cols-6 bg-slate-50/50 px-10 py-7 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-          <span className="col-span-2">Specialist Identity</span>
-          <span>Contact Channels</span>
-          <span>Domain</span>
-          <span>Availability</span>
-          <span className="text-right">Operation</span>
+          <span className="col-span-2">Professional Identity</span>
+          <span>Contact Info</span>
+          <span>Role & Expertise</span>
+          <span>Weekly Schedule</span>
+          <span className="text-right">Actions</span>
         </div>
 
         <div className="divide-y divide-slate-50">
@@ -298,7 +332,7 @@ const StaffList: React.FC = () => {
                                 ? "bg-slate-300"
                                 : staff.isActive
                                   ? "bg-emerald-500 animate-pulse"
-                                  : "bg-slate-300"
+                                  : "bg-rose-500" // Aktif değilse kırmızı nokta
                             }`}
                           />
                           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -313,7 +347,7 @@ const StaffList: React.FC = () => {
                     </Link>
                   </div>
 
-                  {/* Email & Phone */}
+                  {/* Contact Info */}
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
                       <Mail
@@ -335,34 +369,46 @@ const StaffList: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Expertise */}
-                  <div>
+                  {/* 🚨 YENİ: Role & Expertise (RBAC Gösterimi) */}
+                  <div className="flex flex-col gap-1.5 items-start">
                     <span
-                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
                         isLocked
                           ? "bg-slate-50 text-slate-400 border-slate-100"
-                          : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                          : getRoleStyle(staff.role)
                       }`}
                     >
-                      <Award size={14} />
-                      {staff.expertise}
+                      <ShieldAlert size={12} />
+                      {formatRole(staff.role)}
                     </span>
+                    {/* Altında eski expertise (varsa) cılız ve şık dursun */}
+                    {staff.expertise && (
+                      <span className="text-[10px] font-bold text-slate-400 ml-1">
+                        • {staff.expertise}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Work Days */}
+                  {/* Weekly Schedule */}
                   <div className="flex flex-wrap gap-1.5">
-                    {staff.workDays?.slice(0, 3).map((day, idx) => (
-                      <span
-                        key={idx}
-                        className={`text-[9px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest ${
-                          isLocked
-                            ? "bg-slate-50 text-slate-300"
-                            : "bg-slate-100 text-slate-400"
-                        }`}
-                      >
-                        {day.substring(0, 3)}
+                    {staff.workDays?.length > 0 ? (
+                      staff.workDays.slice(0, 3).map((day, idx) => (
+                        <span
+                          key={idx}
+                          className={`text-[9px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest ${
+                            isLocked
+                              ? "bg-slate-50 text-slate-300"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {day.substring(0, 3)}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400 italic">
+                        Unassigned
                       </span>
-                    ))}
+                    )}
                     {staff.workDays?.length > 3 && (
                       <span
                         className={`text-[9px] font-black ${isLocked ? "text-slate-300" : "text-indigo-400"}`}
@@ -372,7 +418,7 @@ const StaffList: React.FC = () => {
                     )}
                   </div>
 
-                  {/* 🚨 KİLİT AKSİYONLARI */}
+                  {/* 🚨 ACTIONS */}
                   <div
                     className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >

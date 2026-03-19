@@ -63,6 +63,7 @@ enum Role {
   SUPER_ADMIN
   TENANT_ADMIN
   DOCTOR
+  NURSE
   STAFF
 }
 
@@ -130,6 +131,7 @@ type Staff {
   isActive: Boolean!
   imageUrl: String
   bio: String
+  role: Role!
 
   tenant: Tenant
 
@@ -244,6 +246,7 @@ input CreateStaffInput {
   isActive: Boolean!
   imageUrl: String
   bio: String
+  role: Role!
   tenantId: String
 }
 

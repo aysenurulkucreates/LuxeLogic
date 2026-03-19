@@ -16,6 +16,7 @@ interface Staff {
   name: string;
   email?: string;
   expertise?: string;
+  role?: string;
 }
 
 interface Customer {
@@ -131,7 +132,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
 
   if (!isOpen) return null;
 
-  // --- 🚑 TRIAGE STATES (BURADAYMIŞ BEBİŞİM!) ---
+  // --- 🚑 TRIAGE STATES ---
   if (staffLoading || customerLoading)
     return (
       <div className="flex justify-center items-center h-96">
@@ -272,11 +273,13 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                 required
               >
                 <option value="">Select surgical staff...</option>
-                {staffData?.myStaff?.map((staff: Staff) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.name}
-                  </option>
-                ))}
+                {staffData?.myStaff
+                  ?.filter((staff: Staff) => staff.role === "DOCTOR")
+                  .map((staff: Staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.name}
+                    </option>
+                  ))}
               </select>
             </div>
 

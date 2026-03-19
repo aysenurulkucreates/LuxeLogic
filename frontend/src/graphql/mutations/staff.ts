@@ -13,6 +13,7 @@ export const CREATE_STAFF = gql`
       isActive
       imageUrl
       bio
+      role
     }
   }
 `;

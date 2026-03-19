@@ -13,6 +13,7 @@ interface Staff {
   isActive: boolean;
   imageUrl?: string;
   bio?: string;
+  role?: string;
 }
 
 interface AddStaffModalProps {
@@ -30,6 +31,7 @@ interface StaffFormData {
   isActive: boolean;
   imageUrl: string;
   bio: string;
+  role: string; // 🚨 ŞEF CERRAH: Form verisine rol eklendi
 }
 
 const AddStaffModal: React.FC<AddStaffModalProps> = ({
@@ -46,6 +48,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     isActive: true,
     imageUrl: "",
     bio: "",
+    role: "STAFF", // Varsayılan rol sekreter/personel
   };
 
   const [formData, setFormData] = useState<StaffFormData>({
@@ -57,6 +60,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     isActive: initialData?.isActive ?? true,
     imageUrl: initialData?.imageUrl || "",
     bio: initialData?.bio || "",
+    role: initialData?.role || "STAFF",
   });
 
   const [createStaff, { loading: createLoading }] = useMutation(CREATE_STAFF, {
@@ -74,8 +78,11 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Type assertion for select elements added
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value, type } = e.target;
 
@@ -91,19 +98,34 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const variables = {
-      input: {
-        ...formData,
-        // Backend beklentisine göre gerekirse burada veri tip dönüşümü yapabilirsin
-      },
-    };
 
     if (initialData?.id) {
+      // 🚨 GÜNCELLEME: Rolü dışarıda bırakarak GÜVENLİ ve TERTEMİZ bir obje oluşturuyoruz.
+      // Ne 'any' kullandık, ne de 'kullanılmayan değişken' bıraktık. TypeScript buna bayılacak! 💅
+      const updatePayload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        expertise: formData.expertise,
+        workDays: formData.workDays,
+        isActive: formData.isActive,
+        imageUrl: formData.imageUrl,
+        bio: formData.bio,
+      };
+
       await updateStaff({
-        variables: { id: initialData.id, ...variables },
+        variables: {
+          id: initialData.id,
+          input: updatePayload,
+        },
       });
     } else {
-      await createStaff({ variables });
+      // 🚨 YENİ KAYIT: Tüm veriyi (Rol dahil) Bcrypt blender'ına mermi gibi yolluyoruz!
+      await createStaff({
+        variables: {
+          input: { ...formData },
+        },
+      });
     }
   };
 
@@ -158,7 +180,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
               />
             </div>
 
-            {/* 🎓 Expertise Select/Input */}
+            {/* 🎓 Expertise Input */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-slate-500 uppercase ml-1">
                 Expertise
@@ -170,9 +192,32 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                 className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
-          </div>
 
-          {/* 💡 Buraya workDays için çoklu seçim eklenebilir */}
+            {/* 🎭 ROLE SELECT (FULL ENTERPRISE EDITION) */}
+            <div className="flex flex-col gap-1 md:col-span-2">
+              <label className="text-xs font-bold text-slate-500 uppercase ml-1">
+                System Role (Access Level)
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                disabled={!!initialData?.id} // Düzenlerken rol değiştirilemez!
+                className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-slate-700"
+              >
+                <option value="TENANT_ADMIN">
+                  Clinic Manager (Full Admin Access)
+                </option>
+                <option value="DOCTOR">
+                  Doctor / Specialist (Full Clinical Access)
+                </option>
+                <option value="NURSE">
+                  Nurse / Assistant (Partial Clinical Access)
+                </option>
+                <option value="STAFF">Secretary (Appointments Only)</option>
+              </select>
+            </div>
+          </div>
 
           <div className="mt-8 flex justify-end gap-3">
             <button

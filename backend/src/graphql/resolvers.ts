@@ -846,6 +846,7 @@ export const resolvers = {
         isActive,
         imageUrl,
         bio,
+        role,
       } = input;
 
       const targetTenantId =
@@ -856,6 +857,24 @@ export const resolvers = {
       }
 
       try {
+        // bu e-posta ile sisteme girş yapmış biri var mı
+        const existingUser = await prisma.user.findFirst({ where: { email } });
+        if (existingUser)
+          throw new Error("This email is already registered to another user.");
+
+        const hashedPassword = await bcrypt.hash("Staff123", 10);
+
+        // sisteme girş yapması için user oluşturuyoruz.
+        await prisma.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            role: role,
+            tenantId: targetTenantId,
+            profileImage: imageUrl || "",
+          },
+        });
+
         const newStaff = await prisma.staff.create({
           data: {
             name,
@@ -866,6 +885,7 @@ export const resolvers = {
             isActive,
             imageUrl,
             bio,
+            role,
             tenantId: targetTenantId,
           },
         });

@@ -13,6 +13,7 @@ enum Role {
   SUPER_ADMIN
   TENANT_ADMIN
   DOCTOR
+  NURSE
   STAFF
 }
 enum AppointmentStatus {
@@ -73,6 +74,8 @@ model Staff {
   isActive   Boolean   @default(true)
   imageUrl   String?
   bio        String?
+
+  role       Role      @default(STAFF)
 
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
