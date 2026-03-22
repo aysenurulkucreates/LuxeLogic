@@ -9,6 +9,7 @@ import "../src/App.css";
 import Signin from "./pages/Auth/Signin";
 import Signup from "./pages/Auth/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RoleGuard from "./components/RoleGuard";
 import Overview from "./pages/Dasboard/Overview";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProfilePage from "./pages/Auth/Profile";
@@ -39,18 +40,87 @@ function App() {
           }
         >
           {/* Buradaki sayfalar DashboardLayout'un içindeki <Outlet /> kısmına yerleşir */}
-          <Route path="/overview" element={<Overview />} />
+
+          {/* herkese açık sayfalar */}
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
-          <Route path="/products" element={<ProductList />} />
-          <Route path="/products/:id" element={<ProductDetailPage />} />
-          <Route path="/staff" element={<StaffList />} />
-          <Route path="/staff/:id" element={<StaffDetailPage />} />
           <Route path="/appointments" element={<AppointmentList />} />
           <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
-          <Route path="/sales" element={<SaleList />} />
-          <Route path="/sales/:id" element={<SaleDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+
+          {/* herkese açık olmayan, rol gerektiren özel sayfalar */}
+          <Route
+            path="/overview"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <Overview />
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/products"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <ProductList />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/products/:id"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <ProductDetailPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/staff"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <StaffList />{" "}
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/staff/:id"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <StaffDetailPage />{" "}
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/sales"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <SaleList />{" "}
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/sales/:id"
+            element={
+              <RoleGuard
+                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
+              >
+                <SaleDetailPage />{" "}
+              </RoleGuard>
+            }
+          />
         </Route>
       </Routes>
     </Router>

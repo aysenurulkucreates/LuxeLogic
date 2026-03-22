@@ -91,7 +91,7 @@ export const resolvers = {
         });
       }
 
-      const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF"];
+      const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF", "NURSE"];
       if (allowedRoles.includes(user.role)) {
         return await prisma.customer.findMany({
           where: {
@@ -264,7 +264,7 @@ export const resolvers = {
           AND: [
             user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
             // Bir personel, arkadaşının randevusunu göremez!
-            user.role === "STAFF" ? { staffId: user.id } : {},
+            user.role === "DOCTOR" ? { staffId: user.id } : {},
             searchFilter,
           ],
         },
