@@ -1,18 +1,18 @@
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
-import { Server } from "socket.io"; // 🚨 YENİ: Socket.io tipini içeri alıyoruz
+import { Server } from "socket.io";
 
-// Context çantamıza telsizi (io) ekliyoruz
+// the instruction is: 'the login credentials and database connection of the request to the system should be provided readily to all background functions.'
 export interface GraphQLContext {
   user: any | null;
   prisma: typeof prisma;
-  io: Server; // 🚨 YENİ: Telsizimiz artık çantada!
+  io: Server;
 }
 
-// createContext fonksiyonunun parametrelerine io'yu ekliyoruz
+// the system receives the door card(token) sent by the user and checks if it's real or fake(JWT Verify). If it's real, it finds the person in the database, puts them in its backpack(context), and lets them in. otherwise, it asks 'Who are you?' and sends them away empty-handed.
 export const createContext = async ({
   req,
-  io, // 🚨 YENİ: index.ts'den bu telsizi alacağız
+  io,
 }: {
   req: any;
   io: Server;
@@ -20,7 +20,6 @@ export const createContext = async ({
   const auth = req.headers.authorization || "";
   const token = auth.replace("Bearer ", "");
 
-  // Token yoksa bile io'yu döndürmeyi unutmuyoruz
   if (!token) return { user: null, prisma, io };
 
   try {
@@ -31,8 +30,8 @@ export const createContext = async ({
       include: { tenant: true },
     });
 
-    return { user, prisma, io }; // 🚨 YENİ: Her şey yolundaysa io'yu da teslim et
+    return { user, prisma, io };
   } catch (error) {
-    return { user: null, prisma, io }; // 🚨 YENİ: Hata olsa bile io çökmesin
+    return { user: null, prisma, io };
   }
 };

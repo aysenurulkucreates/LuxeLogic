@@ -7,9 +7,18 @@ import cors from "cors";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 
-import { typeDefs } from "./graphql/typeDefs.js";
+import { appointmentTypeDef } from "./graphql/typedefs/appointment.typeDef.js";
+import { customerTypeDef } from "./graphql/typedefs/customer.typeDef.js";
+import { productTypeDef } from "./graphql/typedefs/product.typeDef.js";
+import { saleTypeDef } from "./graphql/typedefs/sale.typeDef.js";
+import { staffTypeDef } from "./graphql/typedefs/staff.typeDef.js";
+import { tenantTypeDef } from "./graphql/typedefs/tenant.typeDef.js";
+
 import { resolvers } from "./graphql/resolvers.js";
 import { createContext } from "./context/context.js";
+import { dashboardTypeDef } from "./graphql/typedefs/dashboard.typeDef.js";
+import { userTypeDef } from "./graphql/typedefs/user.typeDef.js";
+import { commonTypeDef } from "./graphql/typedefs/common.typeDef.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -21,6 +30,18 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
   },
 });
+
+const typeDefs = [
+  appointmentTypeDef,
+  customerTypeDef,
+  productTypeDef,
+  saleTypeDef,
+  staffTypeDef,
+  tenantTypeDef,
+  userTypeDef,
+  dashboardTypeDef,
+  commonTypeDef,
+];
 
 const server = new ApolloServer({
   typeDefs,
