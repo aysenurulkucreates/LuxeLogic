@@ -27,12 +27,6 @@ export const userTypeDef = `#graphql
 
 }
 
-type DeleteResponse {
-  success: Boolean!
-  message: String
-  deletedId: ID
-}
-
 type AuthPayload {
   token: String!
   user: User!

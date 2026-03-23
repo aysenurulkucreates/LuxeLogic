@@ -20,12 +20,6 @@ export const customerTypeDef = `#graphql
    createdAt: DateTime!
 }
 
-type DeleteResponse {
-  success: Boolean!
-  message: String
-  deletedId: ID
-}
-
 input CreateCustomerInput {
   name: String!
   email: String!

@@ -34,11 +34,6 @@ type Appointment {
   tenant: Tenant!
  }
 
- type DeleteResponse {
-  success: Boolean!
-  message: String
-  deletedId: ID
-}
 
 input AppointmentFilterInput {
   searchTerm: String

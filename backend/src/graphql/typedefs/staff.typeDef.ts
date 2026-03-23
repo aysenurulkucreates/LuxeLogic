@@ -37,13 +37,6 @@ export const staffTypeDef = `#graphql
   updatedAt: DateTime!
 }
 
-type DeleteResponse {
-  success: Boolean!
-  message: String
-  deletedId: ID
-}
-
-
 input CreateStaffInput {
   name: String!
   email: String!

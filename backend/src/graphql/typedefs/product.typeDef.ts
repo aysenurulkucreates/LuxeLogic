@@ -24,12 +24,6 @@ export const productTypeDef = `#graphql
   updatedAt: DateTime!
 }
 
-type DeleteResponse {
-  success: Boolean!
-  message: String
-  deletedId: ID
-}
-
 input CreateProductInput {
   name: String!
   category: String!

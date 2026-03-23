@@ -22,12 +22,6 @@ export const saleTypeDef = `#graphql
   createdAt: DateTime!
  }
 
- type DeleteResponse {
-  success: Boolean!
-  message: String
-  deletedId: ID
-}
-
 input CreateSaleInput {
   quantity: Int!
   totalPrice: Float!
