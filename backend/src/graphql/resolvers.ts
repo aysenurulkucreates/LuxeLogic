@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { GraphQLError } from "graphql";
 import jwt from "jsonwebtoken";
 
+// this is a template/contains lsit that we use to introduce to TypeScript exactly what data (user, prisma, io) is contained within the context object that goes to GraphQl functions. Instead of simply typing context, defining its contents allows us to gain autocomplete and prevent errors.
 interface myContext {
   user?: {
     id: string;
