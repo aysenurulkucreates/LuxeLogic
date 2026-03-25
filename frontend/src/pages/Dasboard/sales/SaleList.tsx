@@ -261,7 +261,7 @@ const SaleList = () => {
                     </td>
 
                     <td className="px-10 py-8 text-xl font-black tracking-tight text-indigo-600">
-                      ₺{sale.totalPrice.toLocaleString()}
+                      ${sale.totalPrice.toLocaleString()}
                     </td>
 
                     <td className="px-10 py-8 text-right">

@@ -13,12 +13,13 @@ import { productTypeDef } from "./graphql/typedefs/product.typeDef.js";
 import { saleTypeDef } from "./graphql/typedefs/sale.typeDef.js";
 import { staffTypeDef } from "./graphql/typedefs/staff.typeDef.js";
 import { tenantTypeDef } from "./graphql/typedefs/tenant.typeDef.js";
-
-import { resolvers } from "./graphql/resolvers.js";
-import { createContext } from "./context/context.js";
 import { dashboardTypeDef } from "./graphql/typedefs/dashboard.typeDef.js";
 import { userTypeDef } from "./graphql/typedefs/user.typeDef.js";
 import { commonTypeDef } from "./graphql/typedefs/common.typeDef.js";
+
+import { resolvers } from "./graphql/resolvers.js";
+
+import { createContext } from "./context/context.js";
 
 const app = express();
 const httpServer = http.createServer(app);

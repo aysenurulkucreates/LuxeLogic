@@ -32,7 +32,6 @@ type AuthPayload {
   user: User!
 }
 
-
 input UpdateUserInput {
  email: String 
  password: String

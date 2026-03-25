@@ -464,7 +464,7 @@ export const resolvers = {
     signup: async (
       _: any,
       { credentials, tenantName, slug }: any,
-      { prisma, user }: myContext,
+      { prisma }: myContext,
     ) => {
       const existingUser = await prisma.user.findUnique({
         where: { email: credentials.email },
@@ -509,11 +509,7 @@ export const resolvers = {
         user: createdUser,
       };
     },
-    signin: async (
-      _: any,
-      { credentials }: any,
-      { prisma, user }: myContext,
-    ) => {
+    signin: async (_: any, { credentials }: any, { prisma }: myContext) => {
       const foundUser = await prisma.user.findUnique({
         where: {
           email: credentials.email,
