@@ -16,16 +16,19 @@ interface myContext {
 
 export const resolvers = {
   Query: {
-    me: async (_: any, args: any, { prisma, user }: myContext) => {
+    // we don't store ID information here because valid tokne information is sufficient; only those with tickets can enter.
+    me: async (_: any, __: any, { prisma, user }: myContext) => {
+      // thanks to this control, red errors won't up on the screen, the site won't crash, only an error will be returned.
       if (!user) {
         return null;
       }
 
       const foundUser = await prisma.user.findUnique({
         where: { id: user.id },
-        include: { tenant: true },
+        // here, by using select instead of include, we retrieve only the necessary information from the database instead of pulling all the information, thus preventing the password from being stored in RAM.
+        select: { id: true, email: true, role: true, tenant: true },
       });
-
+      // this check sends a warning message indicating the status of the user whose account has expired; they need to log in again or they have been deleted from the system.
       if (!foundUser) {
         throw new Error(
           "The session is invalid or the user has been deleted from the database.",
@@ -41,28 +44,48 @@ export const resolvers = {
       { id }: { id: string },
       { prisma, user }: myContext,
     ) => {
+      // thanks to this control, red errors won't up on the screen, the site won't crash, only an error will be returned.
       if (!user) return null;
+
       return await prisma.user.findUnique({
-        where: { id: id },
+        where: { id },
+        // here, by using select instead of include, we retrieve only the necessary information from the database instead of pulling all the information, thus preventing the password from being stored in RAM.
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          profileImage: true,
+          tenantId: true,
+        },
       });
     },
     users: async (_: any, __: any, { prisma, user }: myContext) => {
+      // RBAC(Role-Based Access Control) is implemented here.
+      // To avoid code repetition (DRY), we define a dynamic 'queryConditions',
+      // instead of writing multiple prisma.user.findMany() queries
+      // we strictly use select to prevent fetching sensitive data (like 10,000+ passwords) into RAM.
+
       if (!user) {
         throw new Error("You must log in to view this list.");
       }
 
-      if (user.role === "SUPER_ADMIN") {
-        return await prisma.user.findMany();
+      if (user.role !== "SUPER_ADMIN" && user.role !== "TENANT_ADMIN") {
+        throw new Error("You do not have eprmission to view this list.");
       }
 
-      if (user.role === "TENANT_ADMIN") {
-        return await prisma.user.findMany({
-          where: {
-            tenantId: user.tenantId,
-          },
-        });
-      }
-      throw new Error("You do not have permission to view this list..");
+      const queryConditions =
+        user.role === "TENANT_ADMIN" ? { tenantId: user.tenantId } : {};
+
+      return await prisma.user.findMany({
+        where: queryConditions,
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          profileImage: true,
+          tenantId: true,
+        },
+      });
     },
 
     // customers
