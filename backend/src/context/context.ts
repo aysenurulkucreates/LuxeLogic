@@ -2,6 +2,18 @@ import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 import { Server } from "socket.io";
 
+// Senin eski resolver'lardan gelen ve hata almamak için korumak istediğin yapı
+export interface myContext {
+  user?: {
+    id: string;
+    email: string;
+    tenantId: string;
+    role: string;
+  };
+  prisma: any;
+  io: any;
+}
+
 // the instruction is: 'the login credentials and database connection of the request to the system should be provided readily to all background functions.'
 export interface GraphQLContext {
   user: any | null;

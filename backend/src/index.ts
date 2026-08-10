@@ -7,19 +7,25 @@ import cors from "cors";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 
-import { appointmentTypeDef } from "./graphql/typedefs/appointment.typeDef.js";
-import { customerTypeDef } from "./graphql/typedefs/customer.typeDef.js";
-import { productTypeDef } from "./graphql/typedefs/product.typeDef.js";
-import { saleTypeDef } from "./graphql/typedefs/sale.typeDef.js";
-import { staffTypeDef } from "./graphql/typedefs/staff.typeDef.js";
-import { tenantTypeDef } from "./graphql/typedefs/tenant.typeDef.js";
-import { dashboardTypeDef } from "./graphql/typedefs/dashboard.typeDef.js";
-import { userTypeDef } from "./graphql/typedefs/user.typeDef.js";
+import { appointmentTypeDef } from "./graphql/appointments/appointment.typeDef.js";
+import { customerTypeDef } from "./graphql/customers/customer.typeDef.js";
+import { productTypeDef } from "./graphql/products/product.typeDef.js";
+import { saleTypeDef } from "./graphql/sales/sale.typeDef.js";
+import { staffTypeDef } from "./graphql/staffs/staff.typeDef.js";
+import { tenantTypeDef } from "./graphql/tenants/tenant.typeDef.js";
+import { dashboardTypeDef } from "./graphql/dashboard/dashboard.typeDef.js";
+import { userTypeDef } from "./graphql/users/user.typeDef.js";
 import { commonTypeDef } from "./graphql/typedefs/common.typeDef.js";
 
-import { resolvers } from "./graphql/resolvers.js";
-
+import { appointmentResolvers } from "./graphql/appointments/appointment.resolvers.js";
 import { createContext } from "./context/context.js";
+import { customerResolvers } from "./graphql/customers/customer.resolvers.js";
+import { productResolvers } from "./graphql/products/product.resolvers.js";
+import { dashboardResolvers } from "./graphql/dashboard/dashboard.resolvers.js";
+import { saleResolvers } from "./graphql/sales/sale.resolvers.js";
+import { staffResolvers } from "./graphql/staffs/staff.resolvers.js";
+import { tenantResolvers } from "./graphql/tenants/tenant.resolvers.js";
+import { userResolvers } from "./graphql/users/user.resolvers.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -42,6 +48,17 @@ const typeDefs = [
   userTypeDef,
   dashboardTypeDef,
   commonTypeDef,
+];
+
+const resolvers = [
+  appointmentResolvers,
+  customerResolvers,
+  productResolvers,
+  dashboardResolvers,
+  saleResolvers,
+  staffResolvers,
+  tenantResolvers,
+  userResolvers,
 ];
 
 const server = new ApolloServer({
