@@ -1,12 +1,9 @@
-
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
   provider = "postgresql"
- 
 }
 
 // a structure established to define the roles of users who will log in to the company system.
@@ -17,6 +14,7 @@ enum Role {
   NURSE
   STAFF
 }
+
 // a structure established to define the status of appointment.
 enum AppointmentStatus {
   PENDING
@@ -27,124 +25,145 @@ enum AppointmentStatus {
 
 // bone characteristics defined for managers.
 model Tenant {
-  id            String   @id @default(uuid()) 
-  name          String
-  slug          String   @unique
-  createdAt     DateTime @default(now())
-  users         User[]
-  product       Product[]
-  staff         Staff[]
-  appointment   Appointment[]
-  sale          Sale[]
-} 
+  id          String        @id @default(uuid())
+  name        String
+  slug        String        @unique
+  createdAt   DateTime      @default(now())
+  users       User[]
+  customer    Customer[]
+  product     Product[]
+  staff       Staff[]
+  appointment Appointment[]
+  sale        Sale[]
+}
+
 // definitions created for users of every role registered in the company system.
 model User {
-  id            String   @id @default(uuid()) 
-  email         String   @unique
-  password      String
-  role          Role     @default(TENANT_ADMIN)
-  profileImage  String?
+  id           String  @id @default(uuid())
+  email        String  @unique
+  password     String
+  role         Role    @default(TENANT_ADMIN)
+  profileImage String?
 
-  tenantId      String?
-  tenant        Tenant?  @relation(fields: [tenantId], references: [id]) 
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime @default(now())
+  staff Staff?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
+
 // bone characteristics defined for customers.
 model Customer {
-  id            String   @id @default(uuid())
-  tenantId      String
-  name          String
-  email         String
-  phone         String
-  appointment   Appointment[]
+  id          String        @id @default(uuid())
+  name        String
+  email       String
+  phone       String
+  appointment Appointment[]
 
-  createdAt     DateTime @default(now()) 
-  updatedAt     DateTime @updatedAt
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  sale          Sale[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sale Sale[]
+
+  @@index([tenantId, email])
 }
+
 // bone characteristics for staff.
 model Staff {
-  id            String    @id @default(uuid())
-  tenantId      String
-  name          String
-  email         String    @unique
-  phone         String
-  expertise     String
-  workDays      String[]
-  isActive      Boolean   @default(true)
-  imageUrl      String?
-  bio           String?
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  email     String
+  phone     String
+  expertise String
+  workDays  String[]
+  isActive  Boolean  @default(true)
+  imageUrl  String?
+  bio       String?
 
-  role          Role      @default(STAFF)
+  role Role @default(STAFF)
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
 
-  tenant        Tenant     @relation(fields: [tenantId], references: [id])
-  appointment   Appointment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointment Appointment[]
+
+  @@index([tenantId, email])
 }
+
 // bone characteristics for products.
 model Product {
-  id         String    @id @default(uuid())
-  tenantId   String
-  name       String
-  category   String
-  price      Decimal   @default(0.0)
-  stock      Int       @default(0)
+  id       String  @id @default(uuid())
+  tenantId String
+  name     String
+  category String
+  price    Decimal @default(0.0)
+  stock    Int     @default(0)
 
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sale      Sale[]
+  sale Sale[]
+
+  @@index([tenantId])
 }
+
 // bone characteristics for appointments.
 model Appointment {
-  id              String              @id @default(uuid())
+  id String @id @default(uuid())
 
-  startTime       DateTime  
-  endTime         DateTime
+  startTime DateTime
+  endTime   DateTime
 
-  price           Decimal              @default(0.0)
-  status          AppointmentStatus    @default(PENDING)
-  notes           String?
+  price  Decimal           @default(0.0)
+  status AppointmentStatus @default(PENDING)
+  notes  String?
 
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
 
-  customerId      String
-  customer        Customer             @relation(fields: [customerId], references: [id])
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id])
 
-  staffId         String
-  staff           Staff                @relation(fields: [staffId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  tenantId        String
-  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  @@index([tenantId, startTime, customerId])
 }
+
 // bone characteristics for sales.
 model Sale {
-  id          String    @id @default(cuid()) // cuid is used to prevent fragmentation because it grows faster.
-  
-  productId   String
-  product     Product   @relation(fields: [productId], references: [id])
-  
-  
-  customerId  String?
-  customer    Customer? @relation(fields: [customerId], references: [id])
-  
- 
-  quantity    Int       @default(1)
-  totalPrice  Float    
- 
-  
-  tenantId    String
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  id String @id @default(cuid()) // cuid is used to prevent fragmentation because it grows faster.
 
-  createdAt   DateTime  @default(now())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  quantity   Int     @default(1)
+  totalPrice Decimal
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
 
   @@index([tenantId]) // for performance purposes, when there are thousands of sales, it only retrieves those belonging to the tenantId.
 }

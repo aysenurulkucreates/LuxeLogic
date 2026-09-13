@@ -2,7 +2,8 @@ import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 import { Server } from "socket.io";
 
-// Senin eski resolver'lardan gelen ve hata almamak için korumak istediğin yapı
+// Resolver'larda ortak olarak kullanılan context tipi.
+// Bu interface, projenin her yerinde "bu fonksiyon hangi bilgilere erişebilir" sorusuna cevap verir.
 export interface myContext {
   user?: {
     id: string;
@@ -14,14 +15,20 @@ export interface myContext {
   io: any;
 }
 
-// the instruction is: 'the login credentials and database connection of the request to the system should be provided readily to all background functions.'
+// createContext fonksiyonunun döndürdüğü tip.
+// NOT: myContext ile GraphQLContext birbirine çok benziyor ama aynı değil
+// (user?: opsiyonel vs user: any | null, prisma: any vs prisma: typeof prisma).
+// İleride bunları tek bir interface'te birleştirmek, tutarsızlık riskini azaltır.
 export interface GraphQLContext {
   user: any | null;
   prisma: typeof prisma;
   io: Server;
 }
 
-// the system receives the door card(token) sent by the user and checks if it's real or fake(JWT Verify). If it's real, it finds the person in the database, puts them in its backpack(context), and lets them in. otherwise, it asks 'Who are you?' and sends them away empty-handed.
+// Her GraphQL isteğinde çalışır: kullanıcının gönderdiği token'ı (JWT) doğrular,
+// geçerliyse kullanıcıyı veritabanından bulup context'e ekler.
+// Böylece her resolver, "bu isteği kim yaptı" bilgisine tekrar tekrar
+// kod yazmadan context üzerinden erişebilir.
 export const createContext = async ({
   req,
   io,
@@ -34,8 +41,16 @@ export const createContext = async ({
 
   if (!token) return { user: null, prisma, io };
 
+  // JWT secret'ı ortam değişkeninden okuyoruz — kod içine gömmüyoruz.
+  // Bu değer .env dosyasında tutulur ve asla git'e commit edilmez.
+  const JWT_SECRET = process.env.JWT_SECRET;
+
+  if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET is not defined");
+  }
+
   try {
-    const decoded = jwt.verify(token, "supersecretkey") as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -44,6 +59,7 @@ export const createContext = async ({
 
     return { user, prisma, io };
   } catch (error) {
+    // Token geçersiz, süresi dolmuş veya sahte — kullanıcıyı "giriş yapmamış" say.
     return { user: null, prisma, io };
   }
 };

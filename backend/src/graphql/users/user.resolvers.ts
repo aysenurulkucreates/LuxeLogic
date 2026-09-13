@@ -115,7 +115,7 @@ export const userResolvers = {
           role: createdUser.role,
           tenantId: newTenant.id,
         },
-        "supersecretkey",
+        process.env.JWT_SECRET!,
         { expiresIn: "3d" },
       );
 
@@ -148,7 +148,7 @@ export const userResolvers = {
           role: foundUser.role,
           tenantId: foundUser.tenantId,
         },
-        "supersecretkey",
+        process.env.JWT_SECRET!,
         { expiresIn: "3d" },
       );
 
