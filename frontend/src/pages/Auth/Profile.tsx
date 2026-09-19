@@ -1,15 +1,14 @@
 import { useQuery } from "@apollo/client";
 import { User, Mail, Shield, Building, Camera } from "lucide-react";
 import { GET_ME } from "../../graphql/queries/auth";
+import ErrorState from "../../components/ui/ErrorState";
+import LoadingState from "../../components/ui/LoadingState";
 
 const ProfilePage = () => {
-  const { data, loading, error } = useQuery(GET_ME);
+  const { data, loading, error, refetch } = useQuery(GET_ME);
 
-  if (loading) return <div className="p-8">Loading...</div>;
-  if (error)
-    return (
-      <div className="p-8 text-red-500">An error occured: {error.message}</div>
-    );
+  if (loading && !data) return <LoadingState />;
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   const me = data?.me;
 

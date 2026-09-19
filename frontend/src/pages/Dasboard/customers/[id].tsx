@@ -5,6 +5,8 @@ import { GET_CUSTOMER } from "../../../graphql/queries/auth";
 import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import DetailLayout from "../../../components/shared/DetailLayout";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { Mail, Phone } from "lucide-react";
 
 const CustomerDetailPage = () => {
@@ -12,7 +14,7 @@ const CustomerDetailPage = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data, loading, error } = useQuery(GET_CUSTOMER, {
+  const { data, loading, error, refetch } = useQuery(GET_CUSTOMER, {
     variables: { id },
     fetchPolicy: "network-only",
   });
@@ -23,18 +25,8 @@ const CustomerDetailPage = () => {
     onCompleted: () => navigate("/customers"),
   });
 
-  if (loading)
-    return (
-      <div className="p-20 text-indigo-600 font-black">
-        Resuscitating data... 💉
-      </div>
-    );
-  if (error)
-    return (
-      <div className="p-20 text-rose-600 font-bold">
-        🚨 System Failure: {error.message}
-      </div>
-    );
+  if (loading && !data) return <LoadingState />;
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   if (!customer) {
     return (

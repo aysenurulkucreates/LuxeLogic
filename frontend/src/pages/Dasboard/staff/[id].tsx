@@ -4,6 +4,8 @@ import { useMutation, useQuery } from "@apollo/client";
 import { DELETE_STAFF } from "../../../graphql/mutations/staff";
 import AddStaffModal from "../../../components/shared/AddStaffModal";
 import DetailLayout from "../../../components/shared/DetailLayout";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { useState } from "react";
 import {
   Award,
@@ -20,7 +22,7 @@ const StaffDetailPage = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data, loading, error } = useQuery(GET_STAFF, {
+  const { data, loading, error, refetch } = useQuery(GET_STAFF, {
     variables: { id },
     fetchPolicy: "network-only",
   });
@@ -31,25 +33,9 @@ const StaffDetailPage = () => {
     onCompleted: () => navigate("/staff"),
   });
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
-        <div className="text-indigo-600 font-black animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          Resuscitating data... 💉
-        </div>
-      </div>
-    );
+  if (loading && !data) return <LoadingState />;
 
-  if (error)
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
-        <div className="p-10 bg-white rounded-[2.5rem] shadow-xl border border-rose-100 text-rose-600 font-bold text-center">
-          <p className="text-4xl mb-4">🚨</p>
-          System Failure: {error.message}
-        </div>
-      </div>
-    );
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   if (!staff) {
     return (

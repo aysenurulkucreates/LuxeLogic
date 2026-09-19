@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { GET_MY_PRODUCTS } from "../../../graphql/queries/auth";
 import AddProductModal from "../../../components/shared/AddProductModal";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
@@ -195,22 +197,9 @@ const ProductList: React.FC = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="flex flex-col justify-center items-center h-screen bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-        <p className="text-indigo-600 font-black">Scanning Inventory... 💉</p>
-      </div>
-    );
+  if (loading && !data) return <LoadingState />;
 
-  if (error)
-    return (
-      <div className="p-10 max-w-7xl mx-auto">
-        <div className="bg-rose-50 text-rose-600 p-6 rounded-3xl border border-rose-100 font-bold">
-          🚨 System Failure: {error.message}
-        </div>
-      </div>
-    );
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500 text-left">

@@ -7,6 +7,7 @@ import {
   GET_MY_PRODUCTS, // 🚨 Sızıntı Fix: Tekil isim (Backend uyumu)
 } from "../../graphql/queries/auth";
 import { Banknote, X, ShoppingBag, Package, User, Hash } from "lucide-react";
+import LoadingState from "../ui/LoadingState";
 
 interface Product {
   id: string;
@@ -148,11 +149,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
           </button>
         </div>
 
-        {/* 💉 LOADING STATE */}
-        {(prodLoading || custLoading) && (
-          <div className="p-4 text-center font-bold text-indigo-600 animate-pulse bg-indigo-50/50 text-xs">
-            Syncing Inventory Records...
-          </div>
+        {((prodLoading && !productData) || (custLoading && !customerData)) && (
+          <LoadingState layout="inline" />
         )}
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">

@@ -6,13 +6,14 @@ import {
 } from "../../graphql/queries/auth";
 import { useState } from "react";
 import AddCustomerModal from "../../components/shared/AddCustomerModal";
+import ErrorState from "../../components/ui/ErrorState";
+import LoadingState from "../../components/ui/LoadingState";
 import {
   Users,
   Calendar,
   Briefcase,
   ArrowUpRight,
   Plus,
-  Activity,
   Boxes,
   User,
   Banknote,
@@ -27,11 +28,12 @@ interface Customer {
 
 const Overview: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const { loading, error, data } = useQuery(GET_ME);
+  const { loading, error, data, refetch } = useQuery(GET_ME);
   const {
     data: statsData,
     loading: statsLoading,
     error: statsError,
+    refetch: refetchStats,
   } = useQuery(GET_DASHBOARD_STATS);
   const { data: recentData, loading: recentLoading } =
     useQuery(GET_RECENT_CUSTOMERS);
@@ -43,30 +45,23 @@ const Overview: React.FC = () => {
     }).format(value || 0);
   };
 
-  if (loading || statsLoading || recentLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-slate-400 font-black tracking-widest uppercase text-[10px] animate-pulse">
-          LuxeLogic Statistics Initializing...
-        </p>
-      </div>
-    );
+  if (
+    (loading && !data) ||
+    (statsLoading && !statsData) ||
+    (recentLoading && !recentData)
+  ) {
+    return <LoadingState />;
   }
 
   if (error || statsError) {
     return (
-      <div className="p-10 max-w-7xl mx-auto">
-        <div className="bg-rose-50 border border-rose-100 rounded-4xl p-8 text-center shadow-xl">
-          <Activity size={32} className="mx-auto mb-4 text-rose-600" />
-          <h2 className="text-xl font-black text-rose-900 mb-2">
-            Diagnostic Failure
-          </h2>
-          <p className="text-rose-600/70">
-            {error?.message || statsError?.message}
-          </p>
-        </div>
-      </div>
+      <ErrorState
+        error={error || statsError}
+        onRetry={() => {
+          refetch();
+          refetchStats();
+        }}
+      />
     );
   }
 

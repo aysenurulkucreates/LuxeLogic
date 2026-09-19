@@ -5,6 +5,8 @@ import { GET_MY_SALES } from "../../../graphql/queries/auth";
 import { DELETE_SALE } from "../../../graphql/mutations/sales";
 import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import AddSaleModal from "../../../components/shared/AddSaleModal";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
@@ -61,7 +63,7 @@ const SaleList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { data, loading, error } = useQuery(GET_MY_SALES, {
+  const { data, loading, error, refetch } = useQuery(GET_MY_SALES, {
     variables: { searchTerm },
   });
 
@@ -155,14 +157,7 @@ const SaleList = () => {
     setSelectedSale(null);
   };
 
-  if (error)
-    return (
-      <div className="p-10 max-w-7xl mx-auto">
-        <div className="bg-rose-50 text-rose-600 p-8 rounded-[2.5rem] border border-rose-100 font-black text-center shadow-sm">
-          🚨 System Crash: {error.message}
-        </div>
-      </div>
-    );
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">
@@ -206,10 +201,8 @@ const SaleList = () => {
 
       {/* --- TABLE CONTAINER --- */}
       <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)] border border-slate-50 overflow-hidden">
-        {loading ? (
-          <div className="p-32 text-center font-black text-slate-400 animate-pulse tracking-widest uppercase text-xs">
-            Scanning clinical records... 💉
-          </div>
+        {loading && !data ? (
+          <LoadingState layout="inline" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

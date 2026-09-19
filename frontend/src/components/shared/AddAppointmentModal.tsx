@@ -10,6 +10,8 @@ import {
   GET_MY_STAFF,
 } from "../../graphql/queries/auth";
 import { Banknote, X, CalendarClock } from "lucide-react";
+import ErrorState from "../ui/ErrorState";
+import LoadingState from "../ui/LoadingState";
 
 interface Staff {
   id: string;
@@ -75,6 +77,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     loading: staffLoading,
     error: staffError,
     data: staffData,
+    refetch: refetchStaff,
   } = useQuery(GET_MY_STAFF, {
     variables: { searchTerm: debouncedSearchTerm },
   });
@@ -83,6 +86,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     loading: customerLoading,
     error: customerError,
     data: customerData,
+    refetch: refetchCustomers,
   } = useQuery(GET_MY_CUSTOMERS, {
     variables: { searchTerm: debouncedSearchTerm },
   });
@@ -133,21 +137,19 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
   if (!isOpen) return null;
 
   // --- 🚑 TRIAGE STATES ---
-  if (staffLoading || customerLoading)
-    return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+  if ((staffLoading && !staffData) || (customerLoading && !customerData))
+    return <LoadingState layout="modal" />;
 
   if (staffError || customerError)
     return (
-      <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100 mt-10 font-bold">
-        🚨 System Error:{" "}
-        {staffError?.message ||
-          customerError?.message ||
-          "Unexpected error occured."}
-      </div>
+      <ErrorState
+        error={staffError || customerError}
+        onRetry={() => {
+          refetchStaff();
+          refetchCustomers();
+        }}
+        layout="modal"
+      />
     );
 
   const handleSubmit = async (e: React.FormEvent) => {

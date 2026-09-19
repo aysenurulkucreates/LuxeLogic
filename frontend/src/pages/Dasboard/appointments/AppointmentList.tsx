@@ -14,10 +14,11 @@ import {
   Trash2,
   User,
   Banknote,
-  AlertCircle,
   Lock,
 } from "lucide-react";
 import AddAppointmentModal from "../../../components/shared/AddAppointmentModal";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { Link } from "react-router-dom";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
@@ -258,40 +259,9 @@ const AppointmentList = () => {
   };
 
   // --- ERROR STATE  ---
-  if (listError)
-    return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-rose-50 border-2 border-dashed border-rose-200 rounded-[3rem] p-16 flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in duration-300">
-          <div className="bg-white p-6 rounded-full shadow-xl shadow-rose-100/50">
-            <AlertCircle size={60} className="text-rose-500 animate-pulse" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-rose-900 tracking-tight">
-              System Error! 🚨
-            </h2>
-            <p className="text-rose-600/80 font-medium max-w-md mx-auto">
-              Diagnostic Code:
-              <span className="font-mono bg-rose-100 px-2 py-1 rounded">
-                {listError.message}
-              </span>
-            </p>
-          </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-8 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg active:scale-95"
-          >
-            Attempt Resuscitation 💉
-          </button>
-        </div>
-      </div>
-    );
+  if (listError) return <ErrorState error={listError} onRetry={refetch} />;
 
-  if (listLoading && !data)
-    return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+  if (listLoading && !data) return <LoadingState />;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 text-left">

@@ -1,6 +1,7 @@
 import React, { type ReactNode } from "react";
 import { ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import LoadingState from "../ui/LoadingState";
 
 // --- INTERFACES (Cerrahi Tipler) ---
 interface DetailLayoutProps {
@@ -32,16 +33,8 @@ const DetailLayout: React.FC<DetailLayoutProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // --- LOADING STATE (Surgical Waiting Room ⏳) ---
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-[80vh]">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600"></div>
-        <p className="ml-4 text-slate-500 font-bold">
-          Resuscitating data... 💉
-        </p>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (

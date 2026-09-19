@@ -15,6 +15,8 @@ import {
 import { GET_MY_STAFF } from "../../../graphql/queries/auth";
 import { DELETE_STAFF } from "../../../graphql/mutations/staff";
 import AddStaffModal from "../../../components/shared/AddStaffModal";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
@@ -210,24 +212,9 @@ const StaffList: React.FC = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="flex flex-col justify-center items-center h-screen bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-        <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">
-          Paging Medical Team... 💉
-        </p>
-      </div>
-    );
+  if (loading && !data) return <LoadingState />;
 
-  if (error)
-    return (
-      <div className="p-10 max-w-7xl mx-auto">
-        <div className="bg-rose-50 text-rose-600 p-8 rounded-[2.5rem] border border-rose-100 font-black text-center shadow-sm">
-          🚨 Diagnostic Error: {error.message}
-        </div>
-      </div>
-    );
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">

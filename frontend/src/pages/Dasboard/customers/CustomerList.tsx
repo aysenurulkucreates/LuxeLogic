@@ -13,6 +13,8 @@ import {
   Lock,
 } from "lucide-react";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
+import ErrorState from "../../../components/ui/ErrorState";
+import LoadingState from "../../../components/ui/LoadingState";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 import { io } from "socket.io-client";
@@ -168,18 +170,8 @@ const CustomerList: React.FC = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  if (error)
-    return (
-      <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100 mt-10 font-bold">
-        🚨 System Error: {error.message}
-      </div>
-    );
+  if (loading && !data) return <LoadingState />;
+  if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
