@@ -17,11 +17,10 @@ import AddProductModal from "../../../components/shared/AddProductModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
-import { io } from "socket.io-client";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
-
-const socket = io("http://localhost:4000");
+import { useSocket } from "../../../hooks/useSocket";
+import { useRecordLock } from "../../../hooks/useRecordLock";
 
 // User Interface'i
 interface User {
@@ -45,12 +44,18 @@ const ProductList: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
 
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
+
+  const socket = useSocket(userTenantId);
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
+    socket,
+    userTenantId,
+    user?.email,
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -59,21 +64,27 @@ const ProductList: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { loading, error, data, refetch } = useQuery(GET_MY_PRODUCTS, {
+  const {
+    loading,
+    error,
+    data: currentData,
+    previousData,
+    refetch,
+  } = useQuery(GET_MY_PRODUCTS, {
     variables: { searchTerm: debouncedSearchTerm },
   });
+  // Yeni arama sonucu gelene kadar önceki listeyi göstermeye devam et
+  const data = currentData ?? previousData;
+  const isRefreshing = loading && !!data;
 
   const [deleteProduct] = useMutation(DELETE_PRODUCT, {
     refetchQueries: [{ query: GET_MY_PRODUCTS }],
     onCompleted: () => toast.success("Product deleted successfully."),
+    onError: (err) => toast.error(`Could not delete product: ${err.message}`),
   });
 
   useEffect(() => {
-    if (userTenantId) {
-      socket.emit("join_tenant_room", userTenantId);
-    }
-
-    socket.on("product_created", (newProduct) => {
+    const handleCreated = (newProduct: Product) => {
       toast.success(`New product created: ${newProduct.name}`, {
         style: {
           borderRadius: "10px",
@@ -94,9 +105,9 @@ const ProductList: React.FC = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("product_deleted", (deletedId) => {
+    const handleDeleted = (deletedId: string) => {
       toast.success("Product successfully removed from the inventory. 🗑️", {
         style: {
           borderRadius: "10px",
@@ -119,9 +130,9 @@ const ProductList: React.FC = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("product_updated", (updatedProduct) => {
+    const handleUpdated = (updatedProduct: Product) => {
       toast.success(`Product ${updatedProduct.name} successfully updated`, {
         style: {
           borderRadius: "10px",
@@ -130,64 +141,47 @@ const ProductList: React.FC = () => {
         },
       });
       refetch();
-    });
+    };
 
-    socket.on("sale_created", () => {
+    const handleSaleCreated = () => {
       toast.success("A sale was just made! Stock levels updating... 💸", {
         icon: "📉",
       });
       refetch(); // Stokları tazele!
-    });
+    };
 
     // Satış iptal edildiğinde stoğu anında geri artıracak!
-    socket.on("sale_deleted", () => {
+    const handleSaleDeleted = () => {
       toast.success("A sale was cancelled! Stock levels restored... 🔄", {
         icon: "📈",
       });
       refetch(); // Stokları tazele!
-    });
+    };
 
-    socket.on("record_locked", ({ recordId }) => {
-      setLockedRecords((prev) => [...prev, recordId]);
-    });
-
-    socket.on("record_unlocked", ({ recordId }) => {
-      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
-    });
+    socket.on("product_created", handleCreated);
+    socket.on("product_deleted", handleDeleted);
+    socket.on("product_updated", handleUpdated);
+    socket.on("sale_created", handleSaleCreated);
+    socket.on("sale_deleted", handleSaleDeleted);
 
     return () => {
-      socket.off("product_created");
-      socket.off("product_deleted");
-      socket.off("product_updated");
-      socket.off("sale_created");
-      socket.off("sale_deleted");
-      socket.off("record_locked");
-      socket.off("record_unlocked");
+      socket.off("product_created", handleCreated);
+      socket.off("product_deleted", handleDeleted);
+      socket.off("product_updated", handleUpdated);
+      socket.off("sale_created", handleSaleCreated);
+      socket.off("sale_deleted", handleSaleDeleted);
     };
-  }, [client, debouncedSearchTerm, refetch, userTenantId]);
+  }, [socket, client, debouncedSearchTerm, refetch]);
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setIsModalOpen(true);
-
-    if (userTenantId) {
-      socket.emit("lock_record", {
-        tenantId: user.tenantId,
-        recordId: product.id,
-        userEmail: user?.email || "Staff",
-      });
-    }
+    lockRecord(product.id);
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
-
-    if (selectedProduct?.id && userTenantId) {
-      socket.emit("unlock_record", {
-        tenantId: userTenantId,
-        recordId: selectedProduct.id,
-      });
-    }
+    unlockRecord(selectedProduct?.id);
     setSelectedProduct(null);
   };
 
@@ -197,13 +191,10 @@ const ProductList: React.FC = () => {
     }
   };
 
-  if (loading && !data) return <LoadingState />;
-
   if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500 text-left">
-      <Toaster position="top-right" reverseOrder={false} />
       {/* Search Bar Area */}
       <div className="relative max-w-md mb-12 group">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -250,17 +241,22 @@ const ProductList: React.FC = () => {
           <span className="text-right">Operation</span>
         </div>
 
-        <div className="divide-y divide-slate-50">
-          {data?.myProducts?.length > 0 ? (
+        <div
+          aria-busy={loading}
+          className={`divide-y divide-slate-50 transition-opacity ${isRefreshing ? "opacity-50" : ""}`}
+        >
+          {!data ? (
+            <LoadingState layout="inline" />
+          ) : data.myProducts?.length > 0 ? (
             data.myProducts.map((product: Product) => {
               // 🚨 ŞEF CERRAH RADARI: Bu ürün kilitli mi?
-              const isLocked = lockedRecords.includes(product.id);
+              const locked = isLocked(product.id);
 
               return (
                 <div
                   key={product.id}
                   className={`grid grid-cols-5 px-10 py-8 items-center transition-all group ${
-                    isLocked
+                    locked
                       ? "bg-slate-50/50 opacity-60 grayscale-20 pointer-events-none"
                       : "hover:bg-indigo-50/30 bg-white"
                   }`}
@@ -269,11 +265,11 @@ const ProductList: React.FC = () => {
                   <div className="col-span-2">
                     <Link
                       to={`/products/${product.id}`}
-                      className={`flex items-center gap-5 w-fit group/link ${isLocked ? "pointer-events-none" : ""}`}
+                      className={`flex items-center gap-5 w-fit group/link ${locked ? "pointer-events-none" : ""}`}
                     >
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg transition-transform duration-300 ${
-                          isLocked
+                          locked
                             ? "bg-slate-300 text-slate-100"
                             : "bg-indigo-600 text-white group-hover/link:scale-110"
                         }`}
@@ -283,7 +279,7 @@ const ProductList: React.FC = () => {
                       <div className="flex flex-col text-left">
                         <span
                           className={`font-black text-lg transition-colors ${
-                            isLocked
+                            locked
                               ? "text-slate-500"
                               : "text-slate-800 group-hover/link:text-indigo-600"
                           }`}
@@ -306,19 +302,19 @@ const ProductList: React.FC = () => {
 
                   <div className="flex flex-col gap-2 text-left">
                     <div
-                      className={`flex items-center gap-2 text-lg font-black ${isLocked ? "text-slate-500" : "text-slate-900"}`}
+                      className={`flex items-center gap-2 text-lg font-black ${locked ? "text-slate-500" : "text-slate-900"}`}
                     >
                       <Banknote
                         size={18}
                         className={
-                          isLocked ? "text-slate-400" : "text-emerald-500"
+                          locked ? "text-slate-400" : "text-emerald-500"
                         }
                       />
                       ₺{product.price.toLocaleString()}
                     </div>
                     <div
                       className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                        isLocked
+                        locked
                           ? "text-slate-400"
                           : product.stock > 10
                             ? "text-slate-400"
@@ -332,24 +328,24 @@ const ProductList: React.FC = () => {
 
                   {/* 🚨 KİLİT AKSİYONLARI */}
                   <div
-                    className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                    className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
                     <button
-                      onClick={() => !isLocked && handleEdit(product)}
-                      disabled={isLocked}
+                      onClick={() => !locked && handleEdit(product)}
+                      disabled={locked}
                       className={`p-3 shadow-sm border rounded-xl transition-all ${
-                        isLocked
+                        locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
                       }`}
                     >
-                      {isLocked ? <Lock size={20} /> : <Pencil size={20} />}
+                      {locked ? <Lock size={20} /> : <Pencil size={20} />}
                     </button>
                     <button
-                      onClick={() => !isLocked && handleDelete(product.id)}
-                      disabled={isLocked}
+                      onClick={() => !locked && handleDelete(product.id)}
+                      disabled={locked}
                       className={`p-3 shadow-sm border rounded-xl transition-all ${
-                        isLocked
+                        locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
                       }`}

@@ -7,11 +7,9 @@ import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import AddSaleModal from "../../../components/shared/AddSaleModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
-import { io } from "socket.io-client";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
-
-const socket = io("http://localhost:4000");
+import { useSocket } from "../../../hooks/useSocket";
 
 // User Interface'i
 interface User {
@@ -58,13 +56,15 @@ const SaleList = () => {
 
   const userTenantId = user?.tenantId;
 
+  const socket = useSocket(userTenantId);
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
   const { data, loading, error, refetch } = useQuery(GET_MY_SALES, {
-    variables: { searchTerm },
+    variables: { searchTerm: debouncedSearchTerm },
   });
 
   const [deleteSale] = useMutation(DELETE_SALE, {
@@ -83,11 +83,7 @@ const SaleList = () => {
   });
 
   useEffect(() => {
-    if (userTenantId) {
-      socket.emit("join_tenant_room", userTenantId);
-    }
-
-    socket.on("sale_created", (newSale) => {
+    const handleCreated = (newSale: Sale) => {
       toast.success(
         `New transaction: ${newSale?.quantity}x ${newSale?.product?.name} sold to ${newSale?.customer?.name || "Guest"}`,
         {
@@ -108,9 +104,9 @@ const SaleList = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("sale_deleted", (deletedId) => {
+    const handleDeleted = (deletedId: string) => {
       toast.error(`Transaction cancelled. Stock levels restored! 🔄`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
@@ -129,15 +125,16 @@ const SaleList = () => {
           };
         },
       );
-    });
+    };
+
+    socket.on("sale_created", handleCreated);
+    socket.on("sale_deleted", handleDeleted);
 
     return () => {
-      socket.off("sale_created");
-      socket.off("sale_deleted");
-      socket.off("record_locked");
-      socket.off("record_unlocked");
+      socket.off("sale_created", handleCreated);
+      socket.off("sale_deleted", handleDeleted);
     };
-  }, [client, debouncedSearchTerm, userTenantId]);
+  }, [socket, client, debouncedSearchTerm]);
 
   const handleDelete = async (id: string) => {
     const confirmDelete = window.confirm(
@@ -161,7 +158,6 @@ const SaleList = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">
-      <Toaster position="top-right" reverseOrder={false} />
       {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
         <div>

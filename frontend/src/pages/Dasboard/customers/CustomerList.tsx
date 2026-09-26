@@ -17,10 +17,9 @@ import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
-import { io } from "socket.io-client";
-import toast, { Toaster } from "react-hot-toast";
-
-const socket = io("http://localhost:4000");
+import { useSocket } from "../../../hooks/useSocket";
+import { useRecordLock } from "../../../hooks/useRecordLock";
+import toast from "react-hot-toast";
 
 interface User {
   id: string;
@@ -45,34 +44,45 @@ const CustomerList: React.FC = () => {
     null,
   );
 
-  //  Telsizden gelen kilitli hasta ID'lerini tutacağımız radar hafızamız
-  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
-
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
   const userTenantId = user?.tenantId;
+
+  const socket = useSocket(userTenantId);
+  //  Telsizden gelen kilitli hasta ID'lerini tutan radar hafızamız
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
+    socket,
+    userTenantId,
+    user?.email,
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { loading, error, data, refetch } = useQuery(GET_MY_CUSTOMERS, {
+  const {
+    loading,
+    error,
+    data: currentData,
+    previousData,
+    refetch,
+  } = useQuery(GET_MY_CUSTOMERS, {
     variables: { searchTerm: debouncedSearchTerm },
   });
+  // Yeni arama sonucu gelene kadar önceki listeyi göstermeye devam et
+  const data = currentData ?? previousData;
+  const isRefreshing = loading && !!data;
 
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     refetchQueries: [{ query: GET_MY_CUSTOMERS }],
     onCompleted: () =>
       toast.success("Customer successfully discharged from the system."),
+    onError: (err) => toast.error(`Could not delete customer: ${err.message}`),
   });
 
   useEffect(() => {
-    if (userTenantId) {
-      socket.emit("join_tenant_room", userTenantId);
-    }
-
-    socket.on("customer_created", (newCustomer) => {
+    const handleCreated = (newCustomer: Customer) => {
       toast.success(`New customer arrived: ${newCustomer.name}`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
@@ -86,9 +96,9 @@ const CustomerList: React.FC = () => {
           return { myCustomers: [...existingData.myCustomers, newCustomer] };
         },
       );
-    });
+    };
 
-    socket.on("customer_deleted", (deletedId) => {
+    const handleDeleted = (deletedId: string) => {
       toast.error(`A customer has been removed from the system.`);
       client.cache.updateQuery(
         {
@@ -104,35 +114,26 @@ const CustomerList: React.FC = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("customer_updated", (updatedCustomer) => {
+    const handleUpdated = (updatedCustomer: Customer) => {
       toast.success(`${updatedCustomer.name}'s profile has been updated!`, {
         icon: "✨",
       });
       refetch();
-    });
-
-    // Telsizden gelen kilit anonslarını dinliyoruz!
-    socket.on("record_locked", ({ recordId }) => {
-      // Birisi dosyayı açtı, hemen ID'yi radarımıza (listemize) ekle
-      setLockedRecords((prev) => [...prev, recordId]);
-    });
-
-    socket.on("record_unlocked", ({ recordId }) => {
-      // İşlem bitti, o ID'yi radarımızdan çıkar
-      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
-    });
-
-    return () => {
-      socket.off("customer_created");
-      socket.off("customer_deleted");
-      socket.off("customer_updated");
-      // 🚨 Temizliği unutmuyoruz
-      socket.off("record_locked");
-      socket.off("record_unlocked");
     };
-  }, [client, debouncedSearchTerm, refetch, userTenantId]);
+
+    socket.on("customer_created", handleCreated);
+    socket.on("customer_deleted", handleDeleted);
+    socket.on("customer_updated", handleUpdated);
+
+    // 🚨 Temizliği unutmuyoruz: paylaşılan bağlantıda sadece kendi dinleyicilerimizi kaldırıyoruz
+    return () => {
+      socket.off("customer_created", handleCreated);
+      socket.off("customer_deleted", handleDeleted);
+      socket.off("customer_updated", handleUpdated);
+    };
+  }, [socket, client, debouncedSearchTerm, refetch]);
 
   //  Düzenleme başlayınca telsize fısılda!
   const handleEdit = (customer: Customer) => {
@@ -140,13 +141,7 @@ const CustomerList: React.FC = () => {
     setIsModalOpen(true);
 
     // Telsiz Anonsu: "Ben bu dosyayı ameliyata aldım, kitleyin!"
-    if (userTenantId) {
-      socket.emit("lock_record", {
-        tenantId: userTenantId,
-        recordId: customer.id,
-        userEmail: user?.email || "Staff",
-      });
-    }
+    lockRecord(customer.id);
   };
 
   //  Modal kapanınca telsizden kilidi aç!
@@ -154,12 +149,7 @@ const CustomerList: React.FC = () => {
     setIsModalOpen(false);
 
     // Telsiz Anonsu: "Ameliyat bitti, dosyayı serbest bırakın."
-    if (selectedCustomer?.id && userTenantId) {
-      socket.emit("unlock_record", {
-        tenantId: userTenantId,
-        recordId: selectedCustomer.id,
-      });
-    }
+    unlockRecord(selectedCustomer?.id);
 
     setSelectedCustomer(null);
   };
@@ -170,13 +160,10 @@ const CustomerList: React.FC = () => {
     }
   };
 
-  if (loading && !data) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
-      <Toaster position="top-right" reverseOrder={false} />
-
       {/* Arama ve Buton Kısmı */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
         <div className="relative max-w-md w-full group">
@@ -223,18 +210,23 @@ const CustomerList: React.FC = () => {
           <span className="text-right">Management</span>
         </div>
 
-        <div className="divide-y divide-slate-50">
-          {data?.myCustomers?.length > 0 ? (
+        <div
+          aria-busy={loading}
+          className={`divide-y divide-slate-50 transition-opacity ${isRefreshing ? "opacity-50" : ""}`}
+        >
+          {!data ? (
+            <LoadingState layout="inline" />
+          ) : data.myCustomers?.length > 0 ? (
             data.myCustomers.map((customer: Customer) => {
               //  Radar kontrolü! Bu hasta şu an kilitli mi?
-              const isLocked = lockedRecords.includes(customer.id);
+              const locked = isLocked(customer.id);
 
               return (
                 <div
                   key={customer.id}
                   // Eğer kilitliyse arka planı soluklaştırıyoruz, değilse normal hover efekti
                   className={`grid grid-cols-4 px-10 py-8 items-center transition-all group ${
-                    isLocked
+                    locked
                       ? "bg-slate-50/50 opacity-60 grayscale-20"
                       : "hover:bg-indigo-50/20"
                   }`}
@@ -247,7 +239,7 @@ const CustomerList: React.FC = () => {
                       <Link
                         to={`/customers/${customer.id}`}
                         className={`font-bold text-lg leading-none mb-1 transition-colors ${
-                          isLocked
+                          locked
                             ? "text-slate-500 pointer-events-none"
                             : "text-slate-800 hover:text-indigo-600 cursor-pointer"
                         }`}
@@ -277,7 +269,7 @@ const CustomerList: React.FC = () => {
 
                   {/*  Kilitliyse ekranda Kırmızı Kilit gösteriyoruz! */}
                   <div>
-                    {isLocked ? (
+                    {locked ? (
                       <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-black uppercase tracking-tighter">
                         <Lock size={12} />
                         Editing...
@@ -292,25 +284,25 @@ const CustomerList: React.FC = () => {
 
                   {/*  Kilitliyse Kalem butonunu pasif yapıyoruz! */}
                   <div
-                    className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                    className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
                     <button
-                      onClick={() => !isLocked && handleEdit(customer)}
-                      disabled={isLocked}
+                      onClick={() => !locked && handleEdit(customer)}
+                      disabled={locked}
                       className={`p-3.5 shadow-sm border rounded-2xl transition-all ${
-                        isLocked
+                        locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200"
                       }`}
                     >
-                      {isLocked ? <Lock size={18} /> : <Pencil size={18} />}
+                      {locked ? <Lock size={18} /> : <Pencil size={18} />}
                     </button>
 
                     <button
-                      onClick={() => !isLocked && handleDelete(customer.id)}
-                      disabled={isLocked}
+                      onClick={() => !locked && handleDelete(customer.id)}
+                      disabled={locked}
                       className={`p-3.5 shadow-sm border rounded-2xl transition-all ${
-                        isLocked
+                        locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-200"
                       }`}

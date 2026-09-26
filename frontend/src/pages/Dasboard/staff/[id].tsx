@@ -16,6 +16,7 @@ import {
   Calendar,
   ClipboardList,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const StaffDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +32,7 @@ const StaffDetailPage = () => {
 
   const [deleteStaff] = useMutation(DELETE_STAFF, {
     onCompleted: () => navigate("/staff"),
+    onError: (err) => toast.error(`Could not delete staff: ${err.message}`),
   });
 
   if (loading && !data) return <LoadingState />;

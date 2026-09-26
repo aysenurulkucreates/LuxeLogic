@@ -10,6 +10,7 @@ import {
   GET_MY_STAFF,
 } from "../../graphql/queries/auth";
 import { Banknote, X, CalendarClock } from "lucide-react";
+import toast from "react-hot-toast";
 import ErrorState from "../ui/ErrorState";
 import LoadingState from "../ui/LoadingState";
 
@@ -123,6 +124,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
           tenantId: "",
         });
       },
+      onError: (err) =>
+        toast.error(`Could not create appointment: ${err.message}`),
     },
   );
 
@@ -131,6 +134,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     {
       refetchQueries: [{ query: GET_MY_APPOINTMENTS }],
       onCompleted: () => onClose(),
+      onError: (err) =>
+        toast.error(`Could not update appointment: ${err.message}`),
     },
   );
 

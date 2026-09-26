@@ -8,6 +8,7 @@ import DetailLayout from "../../../components/shared/DetailLayout";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import { Mail, Phone } from "lucide-react";
+import toast from "react-hot-toast";
 
 const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ const CustomerDetailPage = () => {
 
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     onCompleted: () => navigate("/customers"),
+    onError: (err) => toast.error(`Could not delete customer: ${err.message}`),
   });
 
   if (loading && !data) return <LoadingState />;

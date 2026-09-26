@@ -1,6 +1,7 @@
 import { X, User, Mail, Phone, PlusCircle, Save } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@apollo/client";
+import toast from "react-hot-toast";
 import {
   CREATE_CUSTOMER,
   UPDATE_CUSTOMER,
@@ -46,6 +47,7 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         onClose();
         setFormData({ name: "", email: "", phone: "" });
       },
+      onError: (err) => toast.error(`Could not add customer: ${err.message}`),
     },
   );
 
@@ -54,6 +56,8 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
     {
       refetchQueries: [{ query: GET_MY_CUSTOMERS }],
       onCompleted: () => onClose(),
+      onError: (err) =>
+        toast.error(`Could not update customer: ${err.message}`),
     },
   );
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@apollo/client";
+import toast from "react-hot-toast";
 import { GET_MY_STAFF } from "../../graphql/queries/auth";
 import { CREATE_STAFF, UPDATE_STAFF } from "../../graphql/mutations/staff";
 
@@ -69,11 +70,13 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
       onClose();
       setFormData(initialFormState); // 🧼 Tertemiz resetleme
     },
+    onError: (err) => toast.error(`Could not add staff: ${err.message}`),
   });
 
   const [updateStaff, { loading: updateLoading }] = useMutation(UPDATE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
     onCompleted: () => onClose(),
+    onError: (err) => toast.error(`Could not update staff: ${err.message}`),
   });
 
   if (!isOpen) return null;

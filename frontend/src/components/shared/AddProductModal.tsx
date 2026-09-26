@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@apollo/client";
+import toast from "react-hot-toast";
 import {
   CREATE_PRODUCT,
   UPDATE_PRODUCT,
@@ -61,6 +62,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
           stock: 0,
         });
       },
+      onError: (err) => toast.error(`Could not add product: ${err.message}`),
     },
   );
 
@@ -69,6 +71,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     {
       refetchQueries: [{ query: GET_MY_PRODUCTS }],
       onCompleted: () => onClose(),
+      onError: (err) => toast.error(`Could not update product: ${err.message}`),
     },
   );
 

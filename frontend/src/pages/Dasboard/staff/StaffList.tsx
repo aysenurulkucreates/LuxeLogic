@@ -17,11 +17,10 @@ import { DELETE_STAFF } from "../../../graphql/mutations/staff";
 import AddStaffModal from "../../../components/shared/AddStaffModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
-import { io } from "socket.io-client";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
-
-const socket = io("http://localhost:4000");
+import { useSocket } from "../../../hooks/useSocket";
+import { useRecordLock } from "../../../hooks/useRecordLock";
 
 // User Interface'i
 interface User {
@@ -50,12 +49,18 @@ const StaffList: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
-  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
 
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
+
+  const socket = useSocket(userTenantId);
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
+    socket,
+    userTenantId,
+    user?.email,
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -64,22 +69,28 @@ const StaffList: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { loading, error, data, refetch } = useQuery(GET_MY_STAFF, {
+  const {
+    loading,
+    error,
+    data: currentData,
+    previousData,
+    refetch,
+  } = useQuery(GET_MY_STAFF, {
     variables: { searchTerm: debouncedSearchTerm },
   });
+  // Yeni arama sonucu gelene kadar önceki listeyi göstermeye devam et
+  const data = currentData ?? previousData;
+  const isRefreshing = loading && !!data;
 
   const [deleteStaff] = useMutation(DELETE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
     onCompleted: () =>
       toast.success("Specialist successfully discharged from the roster. 💉"),
+    onError: (err) => toast.error(`Could not delete staff: ${err.message}`),
   });
 
   useEffect(() => {
-    if (userTenantId) {
-      socket.emit("join_tenant_room", userTenantId);
-    }
-
-    socket.on("staff_created", (newStaff) => {
+    const handleCreated = (newStaff: Staff) => {
       toast.success(`Staff ${newStaff.name} successfully created`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
@@ -96,9 +107,9 @@ const StaffList: React.FC = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("staff_deleted", (deletedId) => {
+    const handleDeleted = (deletedId: string) => {
       toast.success(`Staff successfully deleted`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
@@ -117,56 +128,35 @@ const StaffList: React.FC = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("staff_updated", (updatedStaff) => {
+    const handleUpdated = (updatedStaff: Staff) => {
       toast.success(`Staff ${updatedStaff.name} sucessfully updated`, {
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });
       refetch();
-    });
+    };
 
-    socket.on("record_locked", ({ recordId }) => {
-      setLockedRecords((prev) => [...prev, recordId]);
-    });
-
-    socket.on("record_unlocked", ({ recordId }) => {
-      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
-    });
+    socket.on("staff_created", handleCreated);
+    socket.on("staff_deleted", handleDeleted);
+    socket.on("staff_updated", handleUpdated);
 
     return () => {
-      socket.off("staff_created");
-      socket.off("staff_deleted");
-      socket.off("staff_updated");
-      socket.off("record_locked");
-      socket.off("record_unlocked");
+      socket.off("staff_created", handleCreated);
+      socket.off("staff_deleted", handleDeleted);
+      socket.off("staff_updated", handleUpdated);
     };
-  }, [client, debouncedSearchTerm, refetch, userTenantId]);
+  }, [socket, client, debouncedSearchTerm, refetch]);
 
   const handleEdit = (staff: Staff) => {
     setSelectedStaff(staff);
-
-    if (userTenantId) {
-      socket.emit("lock_record", {
-        tenantId: user.tenantId,
-        recordId: staff.id,
-        userEmail: user?.email || "Staff",
-      });
-    }
-
+    lockRecord(staff.id);
     setIsModalOpen(true);
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
-
-    if (selectedStaff?.id && userTenantId) {
-      socket.emit("unlock_record", {
-        tenantId: userTenantId,
-        recordId: selectedStaff.id,
-      });
-    }
-
+    unlockRecord(selectedStaff?.id);
     setSelectedStaff(null);
   };
 
@@ -212,13 +202,10 @@ const StaffList: React.FC = () => {
     }
   };
 
-  if (loading && !data) return <LoadingState />;
-
   if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700 text-left">
-      <Toaster position="top-right" reverseOrder={false} />
       {/* --- SEARCH & HEADER --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
         <div className="relative max-w-md w-full group">
@@ -264,17 +251,22 @@ const StaffList: React.FC = () => {
           <span className="text-right">Actions</span>
         </div>
 
-        <div className="divide-y divide-slate-50">
-          {data?.myStaff?.length > 0 ? (
+        <div
+          aria-busy={loading}
+          className={`divide-y divide-slate-50 transition-opacity ${isRefreshing ? "opacity-50" : ""}`}
+        >
+          {!data ? (
+            <LoadingState layout="inline" />
+          ) : data.myStaff?.length > 0 ? (
             data.myStaff.map((staff: Staff) => {
               // 🚨 ŞEF CERRAH RADARI: Bu personel kilitli mi?
-              const isLocked = lockedRecords.includes(staff.id);
+              const locked = isLocked(staff.id);
 
               return (
                 <div
                   key={staff.id}
                   className={`grid grid-cols-6 px-10 py-9 items-center transition-all group ${
-                    isLocked
+                    locked
                       ? "bg-slate-50/50 opacity-60 grayscale-20 pointer-events-none"
                       : "hover:bg-indigo-50/30 bg-white"
                   }`}
@@ -283,11 +275,11 @@ const StaffList: React.FC = () => {
                   <div className="col-span-2">
                     <Link
                       to={`/staff/${staff.id}`}
-                      className={`flex items-center gap-5 w-fit group/link ${isLocked ? "pointer-events-none" : ""}`}
+                      className={`flex items-center gap-5 w-fit group/link ${locked ? "pointer-events-none" : ""}`}
                     >
                       <div
                         className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-2xl shadow-lg transition-transform duration-300 ${
-                          isLocked
+                          locked
                             ? "bg-slate-300 text-slate-100"
                             : "bg-indigo-600 text-white shadow-indigo-100 group-hover/link:scale-110"
                         }`}
@@ -296,7 +288,7 @@ const StaffList: React.FC = () => {
                           <img
                             src={staff.imageUrl}
                             alt={staff.name}
-                            className={`w-full h-full object-cover rounded-3xl ${isLocked ? "grayscale" : ""}`}
+                            className={`w-full h-full object-cover rounded-3xl ${locked ? "grayscale" : ""}`}
                           />
                         ) : (
                           staff.name.charAt(0).toUpperCase()
@@ -305,7 +297,7 @@ const StaffList: React.FC = () => {
                       <div className="flex flex-col">
                         <span
                           className={`font-black text-xl transition-colors ${
-                            isLocked
+                            locked
                               ? "text-slate-500"
                               : "text-slate-800 group-hover/link:text-indigo-600"
                           }`}
@@ -315,7 +307,7 @@ const StaffList: React.FC = () => {
                         <div className="flex items-center gap-2 mt-1">
                           <div
                             className={`w-2 h-2 rounded-full ${
-                              isLocked
+                              locked
                                 ? "bg-slate-300"
                                 : staff.isActive
                                   ? "bg-emerald-500 animate-pulse"
@@ -323,7 +315,7 @@ const StaffList: React.FC = () => {
                             }`}
                           />
                           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            {isLocked
+                            {locked
                               ? "Editing..."
                               : staff.isActive
                                 ? "Active Duty"
@@ -340,7 +332,7 @@ const StaffList: React.FC = () => {
                       <Mail
                         size={14}
                         className={
-                          isLocked ? "text-slate-400" : "text-indigo-400"
+                          locked ? "text-slate-400" : "text-indigo-400"
                         }
                       />
                       {staff.email}
@@ -349,7 +341,7 @@ const StaffList: React.FC = () => {
                       <Phone
                         size={14}
                         className={
-                          isLocked ? "text-slate-400" : "text-indigo-400"
+                          locked ? "text-slate-400" : "text-indigo-400"
                         }
                       />
                       {staff.phone}
@@ -360,7 +352,7 @@ const StaffList: React.FC = () => {
                   <div className="flex flex-col gap-1.5 items-start">
                     <span
                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
-                        isLocked
+                        locked
                           ? "bg-slate-50 text-slate-400 border-slate-100"
                           : getRoleStyle(staff.role)
                       }`}
@@ -383,7 +375,7 @@ const StaffList: React.FC = () => {
                         <span
                           key={idx}
                           className={`text-[9px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest ${
-                            isLocked
+                            locked
                               ? "bg-slate-50 text-slate-300"
                               : "bg-slate-100 text-slate-400"
                           }`}
@@ -398,7 +390,7 @@ const StaffList: React.FC = () => {
                     )}
                     {staff.workDays?.length > 3 && (
                       <span
-                        className={`text-[9px] font-black ${isLocked ? "text-slate-300" : "text-indigo-400"}`}
+                        className={`text-[9px] font-black ${locked ? "text-slate-300" : "text-indigo-400"}`}
                       >
                         + {staff.workDays.length - 3}
                       </span>
@@ -407,24 +399,24 @@ const StaffList: React.FC = () => {
 
                   {/* 🚨 ACTIONS */}
                   <div
-                    className={`flex justify-end gap-3 transition-all duration-300 ${isLocked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                    className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
                     <button
-                      onClick={() => !isLocked && handleEdit(staff)}
-                      disabled={isLocked}
+                      onClick={() => !locked && handleEdit(staff)}
+                      disabled={locked}
                       className={`p-4 shadow-sm border rounded-2xl transition-all ${
-                        isLocked
+                        locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
                       }`}
                     >
-                      {isLocked ? <Lock size={20} /> : <Pencil size={20} />}
+                      {locked ? <Lock size={20} /> : <Pencil size={20} />}
                     </button>
                     <button
-                      onClick={() => !isLocked && handleDelete(staff.id)}
-                      disabled={isLocked}
+                      onClick={() => !locked && handleDelete(staff.id)}
+                      disabled={locked}
                       className={`p-4 shadow-sm border rounded-2xl transition-all ${
-                        isLocked
+                        locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
                       }`}

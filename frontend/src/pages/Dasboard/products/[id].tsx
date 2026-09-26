@@ -15,6 +15,7 @@ import {
   Tag,
   Package,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,7 @@ const ProductDetailPage = () => {
 
   const [deleteProduct] = useMutation(DELETE_PRODUCT, {
     onCompleted: () => navigate("/products"),
+    onError: (err) => toast.error(`Could not delete product: ${err.message}`),
   });
 
   if (loading && !data) return <LoadingState />;

@@ -20,11 +20,10 @@ import AddAppointmentModal from "../../../components/shared/AddAppointmentModal"
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import { Link } from "react-router-dom";
-import { io } from "socket.io-client";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
-
-const socket = io("http://localhost:4000");
+import { useSocket } from "../../../hooks/useSocket";
+import { useRecordLock } from "../../../hooks/useRecordLock";
 
 // --- INTERFACES (Pırlanta Tipler) ---
 interface Staff {
@@ -69,13 +68,18 @@ const AppointmentList = () => {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  // kilit hafızası
-  const [lockedRecords, setLockedRecords] = useState<string[]>([]);
-
   const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
 
   const userTenantId = user?.tenantId;
+
+  const socket = useSocket(userTenantId);
+  // kilit hafızası
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
+    socket,
+    userTenantId,
+    user?.email,
+  );
 
   // --- SEARCH DEBOUNCE (Sızıntı Önleyici 💉) ---
   useEffect(() => {
@@ -87,12 +91,16 @@ const AppointmentList = () => {
   const {
     loading: listLoading,
     error: listError,
-    data,
+    data: currentData,
+    previousData,
     refetch,
   } = useQuery(GET_MY_APPOINTMENTS, {
     variables: { input: { searchTerm: debouncedSearchTerm || "" } },
     fetchPolicy: "cache-and-network",
   });
+  // Yeni arama sonucu gelene kadar önceki kartları göstermeye devam et
+  const data = currentData ?? previousData;
+  const isRefreshing = listLoading && !!data;
 
   // --- MUTATIONS ---
   const [deleteAppointment, { loading: deleteLoading }] = useMutation(
@@ -124,11 +132,7 @@ const AppointmentList = () => {
   );
 
   useEffect(() => {
-    if (userTenantId) {
-      socket.emit("join_tenant_room", userTenantId);
-    }
-
-    socket.on("appointment_created", (newAppointment) => {
+    const handleCreated = (newAppointment: Appointment) => {
       // 🚨 YENİ: console.log yerine ekrandan süzülen Toast bildirimi!
       toast.success(
         `New appointment arrived: ${newAppointment.customer?.name}`,
@@ -153,9 +157,9 @@ const AppointmentList = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("appointment_deleted", (deletedId) => {
+    const handleDeleted = (deletedId: string) => {
       // 🚨 YENİ: Silinme için kırmızı hata bildirimi
       toast.error(
         `An appointment ${deletedId} , has been removed from the system.`,
@@ -175,9 +179,9 @@ const AppointmentList = () => {
           };
         },
       );
-    });
+    };
 
-    socket.on("appointment_updated", (updatedAppointment) => {
+    const handleUpdated = (updatedAppointment: Appointment) => {
       // 🚨 DÜZELTME: Artık paketi açıp hastanın adını (customer.name) kullanıyoruz!
       toast.success(
         `${updatedAppointment?.customer?.name || "A patient"}'s appointment details have been updated!`,
@@ -186,9 +190,9 @@ const AppointmentList = () => {
         },
       );
       refetch();
-    });
+    };
 
-    socket.on("staff_deleted", (deletedId) => {
+    const handleStaffDeleted = (deletedId: string) => {
       toast.success(
         `A staff ${deletedId} member was removed. Updating appointment records... 🔄  `,
         {
@@ -200,26 +204,21 @@ const AppointmentList = () => {
         },
       );
       refetch();
-    });
+    };
 
-    socket.on("record_locked", ({ recordId }) => {
-      setLockedRecords((prev) => [...prev, recordId]);
-    });
-
-    socket.on("record_unlocked", ({ recordId }) => {
-      setLockedRecords((prev) => prev.filter((id) => id !== recordId));
-    });
+    socket.on("appointment_created", handleCreated);
+    socket.on("appointment_deleted", handleDeleted);
+    socket.on("appointment_updated", handleUpdated);
+    socket.on("staff_deleted", handleStaffDeleted);
 
     // TEMİZLİK: Bileşen ekrandan kalkarsa kulaklığı çıkarıyoruz (Hafıza sızıntısını önler)
     return () => {
-      socket.off("appointment_created");
-      socket.off("appointment_deleted");
-      socket.off("appointment_updated");
-      socket.off("staff_deleted");
-      socket.off("record_locked");
-      socket.off("record_unlocked");
+      socket.off("appointment_created", handleCreated);
+      socket.off("appointment_deleted", handleDeleted);
+      socket.off("appointment_updated", handleUpdated);
+      socket.off("staff_deleted", handleStaffDeleted);
     };
-  }, [client, debouncedSearchTerm, refetch, userTenantId]);
+  }, [socket, client, debouncedSearchTerm, refetch]);
 
   // --- HANDLERS ---
   const handleStatusUpdate = async (id: string, newStatus: string) => {
@@ -235,37 +234,20 @@ const AppointmentList = () => {
   const handleEdit = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsModalOpen(true);
-
-    if (userTenantId) {
-      socket.emit("lock_record", {
-        tenantId: user.tenantId,
-        recordId: appointment.id,
-        userEmail: user?.email || "Staff",
-      });
-    }
+    lockRecord(appointment.id);
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
-
-    if (selectedAppointment?.id && userTenantId) {
-      socket.emit("unlock_record", {
-        tenantId: userTenantId,
-        recordId: selectedAppointment.id,
-      });
-    }
-
+    unlockRecord(selectedAppointment?.id);
     setSelectedAppointment(null);
   };
 
   // --- ERROR STATE  ---
   if (listError) return <ErrorState error={listError} onRetry={refetch} />;
 
-  if (listLoading && !data) return <LoadingState />;
-
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 text-left">
-      <Toaster position="top-right" reverseOrder={false} />
       {/* --- 🩺 HEADER: Arama ve Başlık Bölgesi --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="space-y-1">
@@ -292,7 +274,10 @@ const AppointmentList = () => {
       </div>
 
       {/* --- 🩺 GRID: Randevu Kartları --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div
+        aria-busy={listLoading}
+        className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity ${isRefreshing ? "opacity-50" : ""}`}
+      >
         {/* ➕ YENİ RANDEVU BUTONU */}
         <button
           onClick={() => setIsModalOpen(true)}
@@ -313,19 +298,19 @@ const AppointmentList = () => {
 
         {/* 📋 RANDEVU DÖNGÜSÜ */}
         {data?.myAppointments?.map((app: Appointment) => {
-          const isLocked = lockedRecords.includes(app.id);
+          const locked = isLocked(app.id);
           return (
             <div
               key={app.id}
               className={`rounded-[2.5rem] p-8 shadow-sm border transition-all duration-300 relative overflow-hidden flex flex-col justify-between min-h-32.5 ${
-                isLocked
+                locked
                   ? "bg-slate-50/50 opacity-60 grayscale-20 border-slate-200 pointer-events-none"
                   : "bg-white border-slate-100 hover:shadow-xl hover:-translate-y-1 group"
               }`}
             >
               {/* 🏷️ STATUS BADGE */}
               <div className="absolute top-6 right-6">
-                {isLocked ? (
+                {locked ? (
                   <span className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
                     <Lock size={12} />
                     Editing...
@@ -351,11 +336,11 @@ const AppointmentList = () => {
                 {/* 🔗 DATE LINK: Tarihe tıklayınca detaya! */}
                 <Link
                   to={`/appointments/${app.id}`}
-                  className={`block w-fit ${isLocked ? "pointer-events-none" : ""}`}
+                  className={`block w-fit ${locked ? "pointer-events-none" : ""}`}
                 >
                   <div
                     className={`flex items-center gap-3 font-bold px-4 py-2 rounded-xl transition-colors ${
-                      isLocked
+                      locked
                         ? "bg-slate-100 text-slate-500"
                         : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                     }`}
@@ -379,11 +364,11 @@ const AppointmentList = () => {
                     </p>
                     <Link
                       to={`/appointments/${app.id}`}
-                      className={isLocked ? "pointer-events-none" : ""}
+                      className={locked ? "pointer-events-none" : ""}
                     >
                       <h3
                         className={`text-2xl font-black leading-tight text-left truncate transition-colors decoration-2 underline-offset-4 ${
-                          isLocked
+                          locked
                             ? "text-slate-500"
                             : "text-slate-800 hover:text-indigo-600 hover:underline decoration-indigo-200"
                         }`}
@@ -397,7 +382,7 @@ const AppointmentList = () => {
                       <User
                         size={18}
                         className={
-                          isLocked ? "text-slate-400" : "text-indigo-500"
+                          locked ? "text-slate-400" : "text-indigo-500"
                         }
                       />
                     </div>
@@ -406,7 +391,7 @@ const AppointmentList = () => {
                         Assigned Staff
                       </p>
                       <p
-                        className={`text-sm font-bold ${isLocked ? "text-slate-500" : "text-slate-700"}`}
+                        className={`text-sm font-bold ${locked ? "text-slate-500" : "text-slate-700"}`}
                       >
                         {app.staff?.name || "Unassigned"}
                       </p>
@@ -417,7 +402,7 @@ const AppointmentList = () => {
                 {/* 💸 PRICE BADGE */}
                 <div
                   className={`flex items-center justify-between p-4 rounded-2xl border ${
-                    isLocked
+                    locked
                       ? "bg-slate-50 border-slate-100"
                       : "bg-emerald-50/50 border-emerald-100"
                   }`}
@@ -426,17 +411,17 @@ const AppointmentList = () => {
                     <Banknote
                       size={16}
                       className={
-                        isLocked ? "text-slate-400" : "text-emerald-600"
+                        locked ? "text-slate-400" : "text-emerald-600"
                       }
                     />
                     <span
-                      className={`text-[10px] font-black uppercase tracking-widest ${isLocked ? "text-slate-400" : "text-emerald-600"}`}
+                      className={`text-[10px] font-black uppercase tracking-widest ${locked ? "text-slate-400" : "text-emerald-600"}`}
                     >
                       Fee
                     </span>
                   </div>
                   <span
-                    className={`text-xl font-black ${isLocked ? "text-slate-500" : "text-emerald-700"}`}
+                    className={`text-xl font-black ${locked ? "text-slate-500" : "text-emerald-700"}`}
                   >
                     ₺{app.price || 0}
                   </span>
@@ -460,12 +445,12 @@ const AppointmentList = () => {
                           }}
                           // 🚨 ŞEF CERRAH DOKUNUŞU 3: Kilitliyse butonları da kilitliyoruz!
                           disabled={
-                            statusLoading || app.status === status || isLocked
+                            statusLoading || app.status === status || locked
                           }
                           className={`py-2 rounded-xl text-[9px] font-black transition-all border ${
-                            app.status === status && !isLocked
+                            app.status === status && !locked
                               ? "bg-slate-900 border-slate-900 text-white shadow-md"
-                              : isLocked
+                              : locked
                                 ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
                                 : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200"
                           }`}
@@ -481,16 +466,16 @@ const AppointmentList = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isLocked) handleEdit(app);
+                      if (!locked) handleEdit(app);
                     }}
-                    disabled={isLocked}
+                    disabled={locked}
                     className={`flex-1 py-3 rounded-xl font-black transition-colors text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 ${
-                      isLocked
+                      locked
                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                         : "bg-slate-900 text-white hover:bg-indigo-600"
                     }`}
                   >
-                    {isLocked ? (
+                    {locked ? (
                       <>
                         <Lock size={14} /> Locked
                       </>
@@ -501,11 +486,11 @@ const AppointmentList = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isLocked) handleDelete(app.id);
+                      if (!locked) handleDelete(app.id);
                     }}
-                    disabled={deleteLoading || isLocked}
+                    disabled={deleteLoading || locked}
                     className={`px-4 rounded-xl transition-colors border ${
-                      isLocked
+                      locked
                         ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
                         : "bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-100"
                     }`}
@@ -518,6 +503,9 @@ const AppointmentList = () => {
           );
         })}
       </div>
+
+      {/* --- İLK YÜKLEME: sadece kart alanında --- */}
+      {!data && <LoadingState layout="inline" />}
 
       {/* --- 🚨 EMPTY STATE --- */}
       {data?.myAppointments?.length === 0 && (

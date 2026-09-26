@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import CustomerList from "./pages/Dasboard/customers/CustomerList";
 import "../src/App.css";
 import Signin from "./pages/Auth/Signin";
@@ -26,6 +27,8 @@ import SaleDetailPage from "./pages/Dasboard/sales/[id]";
 function App() {
   return (
     <Router>
+      {/* Tüm sayfaların bildirimleri için tek Toaster */}
+      <Toaster position="top-right" reverseOrder={false} />
       <Routes>
         {/* Herkese Açık Kapılar */}
         <Route path="/" element={<Navigate to={"/signin"} />} />
