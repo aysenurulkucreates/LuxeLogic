@@ -19,18 +19,41 @@ interface Customer {
 }
 
 // Tüm istatistik kartlarının ortak yapısı: üstte etiket, altında değer
+// highlight: öne çıkan kart için açık yeşil vurgu
 const StatCard = ({
   label,
   value,
+  highlight = false,
 }: {
   label: string;
   value: React.ReactNode;
+  highlight?: boolean;
 }) => (
-  <div className="h-full bg-white p-6 rounded-2xl border border-slate-200">
-    <p className="text-sm text-slate-500">{label}</p>
-    <p className="text-2xl font-semibold text-slate-900 mt-1">{value}</p>
+  <div
+    className={`h-full p-6 rounded-2xl border ${
+      highlight
+        ? "bg-emerald-50 border-emerald-100"
+        : "bg-white border-slate-200"
+    }`}
+  >
+    <p
+      className={`text-sm ${highlight ? "text-emerald-700" : "text-slate-500"}`}
+    >
+      {label}
+    </p>
+    <p
+      className={`text-2xl font-semibold mt-1 ${
+        highlight ? "text-emerald-700" : "text-slate-900"
+      }`}
+    >
+      {value}
+    </p>
   </div>
 );
+
+// Stat grid'lerinin ortak sütun düzeni: aynı sınıf, aynı kart genişliği
+const statGridClasses =
+  "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left";
 
 const Overview: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -81,15 +104,16 @@ const Overview: React.FC = () => {
         <p className="text-sm text-slate-500 mt-1">Welcome back, {userName}.</p>
       </div>
 
-      {/* Toplam bakiye: diğer kartlarla aynı stil, tek başına geniş kart */}
-      <div className="mb-6 text-left">
+      {/* Toplam bakiye: en üstte tek başına, aynı grid düzeniyle diğer kartlarla aynı genişlikte */}
+      <div className={`${statGridClasses} mb-6`}>
         <StatCard
           label="Total balance"
           value={formatCurrency(stats?.totalRevenue)}
+          highlight
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10 text-left">
+      <div className={`${statGridClasses} mb-10`}>
         <StatCard
           label="Appointment revenue"
           value={formatCurrency(stats?.appointmentRevenue)}
