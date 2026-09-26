@@ -49,7 +49,6 @@ model User {
   tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   staff Staff?
-
   createdAt DateTime @default(now())
 
   @@index([tenantId])

@@ -95,7 +95,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
 
   const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;
-    const product = productData?.myProduct?.find(
+    const product = productData?.myProducts?.find(
       (p: Product) => p.id === selectedId,
     );
     setFormData((prev) => ({

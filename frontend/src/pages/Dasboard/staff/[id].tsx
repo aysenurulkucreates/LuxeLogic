@@ -45,7 +45,7 @@ const StaffDetailPage = () => {
             No file found! 🔍
           </h1>
           <button
-            onClick={() => navigate("/appointments")}
+            onClick={() => navigate("/staff")}
             className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg"
           >
             ← Back to Directory
@@ -220,7 +220,7 @@ const StaffDetailPage = () => {
                   </h2>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {staff.workDays.length > 0 ? (
+                  {staff.workDays?.length > 0 ? (
                     staff.workDays.map((day: string) => (
                       <span
                         key={day}

@@ -85,7 +85,7 @@ const DetailLayout: React.FC<DetailLayoutProps> = ({
       </div>
 
       {/* --- MAIN BODY FRAME (Cerrahi Bölge) --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-[380px,1fr] gap-10 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-10 items-start">
         {/* --- SLOT A: PROFILE SIDEBAR (Sol Organ) --- */}
         <div className="sticky top-10 space-y-8">
           {profileSlot} {/* 💎 BURAYA VERİ GELECEK */}

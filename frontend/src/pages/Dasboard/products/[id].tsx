@@ -44,7 +44,7 @@ const ProductDetailPage = () => {
             No file found! 🔍
           </h1>
           <button
-            onClick={() => navigate("/appointments")}
+            onClick={() => navigate("/products")}
             className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg"
           >
             ← Back to Directory
@@ -57,7 +57,7 @@ const ProductDetailPage = () => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-20">
       <DetailLayout
-        title={product.customer?.name || "Product Detail"}
+        title={product.name || "Product Detail"}
         backUrl="/products"
         onEdit={() => setIsModalOpen(true)}
         onDelete={() => {

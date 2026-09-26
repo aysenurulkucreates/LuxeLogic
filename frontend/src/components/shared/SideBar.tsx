@@ -6,7 +6,6 @@ import {
   LogOut,
   CircleUser,
   Package,
-  SlidersHorizontal,
   Contact,
   CalendarClock,
   HandCoins,
@@ -90,13 +89,6 @@ const Sidebar: React.FC = () => {
       path: "/profile",
       icon: CircleUser,
       // Herkes kendi profilini görebilir
-    },
-    {
-      name: "Settings",
-      path: "/settings",
-      icon: SlidersHorizontal,
-      // Klinik ayarlarını sadece yöneticiler değiştirebilir
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
     {
       name: "Logout",

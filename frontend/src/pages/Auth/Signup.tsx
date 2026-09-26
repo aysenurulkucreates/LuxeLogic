@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { useMutation } from "@apollo/client";
-import { SIGNUP_MUTATION } from "../../graphql/mutations/Auth";
+import { SIGNUP_MUTATION } from "../../graphql/mutations/auth";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 
 const Signup: React.FC = () => {
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [tenantName, setTenantName] = useState("");
   const [slug, setSlug] = useState("");
@@ -14,7 +16,7 @@ const Signup: React.FC = () => {
   const [signupUser, { loading }] = useMutation(SIGNUP_MUTATION, {
     onCompleted: (data) => {
       const { token } = data.signup;
-      localStorage.setItem("token", token);
+      login(token);
       navigate("/overview");
     },
     onError: (error) => {
@@ -60,9 +62,9 @@ const Signup: React.FC = () => {
           </div>
           {/* Buraya örnek bir görsel overlay eklenebilir */}
           <img
-            src="/public/images/clinic.png"
+            src="/images/clinic.png"
             className="absolute inset-0 w-full h-full object-cover opacity-20"
-            alt="Clinic"
+            alt=""
           />
         </div>
 

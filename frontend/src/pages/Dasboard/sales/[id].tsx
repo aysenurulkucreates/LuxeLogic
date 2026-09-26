@@ -46,7 +46,7 @@ const SaleDetailPage = () => {
             No file found! 🔍
           </h1>
           <button
-            onClick={() => navigate("/appointments")}
+            onClick={() => navigate("/sales")}
             className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg"
           >
             ← Back to Directory
