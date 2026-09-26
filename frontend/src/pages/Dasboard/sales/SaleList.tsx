@@ -9,6 +9,7 @@ import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
+import EmptyState from "../../../components/ui/EmptyState";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
@@ -246,14 +247,7 @@ const SaleList = () => {
 
         {/* --- EMPTY STATE --- */}
         {!loading && data?.mySales?.length === 0 && (
-          <div className="py-32 text-center flex flex-col items-center gap-4">
-            <div className="p-8 bg-slate-50 rounded-full">
-              <Filter size={48} className="text-slate-200" />
-            </div>
-            <p className="text-slate-500 font-semibold text-xs">
-              No sales found.
-            </p>
-          </div>
+          <EmptyState plural="sales" singular="sale" icon={Filter} />
         )}
       </div>
 

@@ -17,6 +17,7 @@ import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
+import EmptyState from "../../../components/ui/EmptyState";
 import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
@@ -319,14 +320,11 @@ const ProductList: React.FC = () => {
               );
             })
           ) : (
-            <div className="py-32 text-center flex flex-col items-center gap-6">
-              <div className="p-8 bg-slate-50 rounded-full">
-                <PackageSearch size={64} className="text-slate-200" />
-              </div>
-              <p className="text-slate-500 font-semibold text-sm">
-                No products found.
-              </p>
-            </div>
+            <EmptyState
+              plural="products"
+              singular="product"
+              icon={PackageSearch}
+            />
           )}
         </div>
       </div>

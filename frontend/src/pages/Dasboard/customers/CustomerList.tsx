@@ -3,7 +3,6 @@ import { useMutation, useQuery, useApolloClient } from "@apollo/client";
 import { GET_MY_CUSTOMERS } from "../../../graphql/queries/auth";
 import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
 import {
-  Search,
   UserPlus,
   Mail,
   Phone,
@@ -16,6 +15,7 @@ import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
+import EmptyState from "../../../components/ui/EmptyState";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
@@ -293,17 +293,7 @@ const CustomerList: React.FC = () => {
               );
             })
           ) : (
-            <div className="py-32 text-center flex flex-col items-center gap-4">
-              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-2">
-                <Search size={48} />
-              </div>
-              <p className="text-slate-400 font-semibold text-xl">
-                No customers found.
-              </p>
-              <p className="text-slate-500 text-sm max-w-xs">
-                Try a different search or add your first customer.
-              </p>
-            </div>
+            <EmptyState plural="customers" singular="customer" />
           )}
         </div>
       </div>

@@ -21,6 +21,7 @@ import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
+import EmptyState from "../../../components/ui/EmptyState";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
@@ -465,10 +466,12 @@ const AppointmentList = () => {
 
       {/* --- 🚨 EMPTY STATE --- */}
       {data?.myAppointments?.length === 0 && (
-        <div className="text-center py-32 bg-slate-50 rounded-2xl border-4 border-dashed border-slate-200">
-          <p className="text-slate-400 font-bold text-xl italic">
-            No appointments found.
-          </p>
+        <div className="bg-white rounded-2xl border border-slate-100">
+          <EmptyState
+            plural="appointments"
+            singular="appointment"
+            icon={CalendarClock}
+          />
         </div>
       )}
 

@@ -18,6 +18,7 @@ import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
 import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
+import EmptyState from "../../../components/ui/EmptyState";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
@@ -409,19 +410,11 @@ const StaffList: React.FC = () => {
               );
             })
           ) : (
-            <div className="py-40 text-center flex flex-col items-center gap-6">
-              <div className="p-10 bg-slate-50 rounded-full">
-                <UserX size={64} className="text-slate-200" />
-              </div>
-              <div className="space-y-2">
-                <p className="text-slate-500 font-semibold text-sm">
-                  No staff members found.
-                </p>
-                <p className="text-slate-500 text-xs font-medium">
-                  Add your first staff member to get started.
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              plural="staff members"
+              singular="staff member"
+              icon={UserX}
+            />
           )}
         </div>
       </div>
