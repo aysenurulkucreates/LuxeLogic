@@ -9,8 +9,9 @@ import {
   GET_MY_CUSTOMERS,
   GET_MY_STAFF,
 } from "../../graphql/queries/auth";
-import { Banknote, X, CalendarClock } from "lucide-react";
+import { Banknote, X, CalendarClock, Save } from "lucide-react";
 import toast from "react-hot-toast";
+import Button from "../ui/Button";
 import ErrorState from "../ui/ErrorState";
 import LoadingState from "../ui/LoadingState";
 
@@ -161,7 +162,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     e.preventDefault();
 
     if (!formData.customerId || !formData.staffId) {
-      alert("Choose your staff and customers first. 🚑");
+      toast.error("Please select a staff member and a customer.");
       return;
     }
 
@@ -197,7 +198,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
         {/* MODAL HEADER */}
         <div className="bg-indigo-600 p-8 flex justify-between items-center text-white">
           <div className="flex items-center gap-4">
@@ -205,17 +206,14 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
               <CalendarClock size={28} />
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tight">
-                {initialData ? "Edit Operation" : "New Operation"} 💉
+              <h2 className="text-lg font-semibold">
+                {initialData ? "Edit appointment" : "New appointment"}
               </h2>
-              <p className="text-indigo-100 text-sm">
-                LuxeLogic Surgical Precision
-              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
             <X size={24} />
           </button>
@@ -226,8 +224,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
           <div className="relative group">
             <input
               type="text"
-              placeholder="Quick search for staff or patient... 🔍"
-              className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white transition-all font-medium text-slate-700 outline-none"
+              placeholder="Search staff or customers..."
+              className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-lg focus:border-indigo-500 focus:bg-white transition-all font-medium text-slate-700 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -241,13 +239,13 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+              <label className="text-xs font-semibold text-slate-500 ml-1">
                 Start Time
               </label>
               <input
                 type="datetime-local"
                 name="startTime"
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
+                className="w-full p-4 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
                 value={formData.startTime}
                 onChange={handleChange}
                 required
@@ -255,13 +253,13 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+              <label className="text-xs font-semibold text-slate-500 ml-1">
                 End Time
               </label>
               <input
                 type="datetime-local"
                 name="endTime"
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
+                className="w-full p-4 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
                 value={formData.endTime}
                 onChange={handleChange}
                 required
@@ -269,17 +267,17 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+              <label className="text-xs font-semibold text-slate-500 ml-1">
                 Assigned Staff
               </label>
               <select
                 name="staffId"
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
+                className="w-full p-4 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
                 value={formData.staffId}
                 onChange={handleChange}
                 required
               >
-                <option value="">Select surgical staff...</option>
+                <option value="">Select staff...</option>
                 {staffData?.myStaff
                   ?.filter((staff: Staff) => staff.role === "DOCTOR")
                   .map((staff: Staff) => (
@@ -291,17 +289,17 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                Patient / Customer
+              <label className="text-xs font-semibold text-slate-500 ml-1">
+                Customer
               </label>
               <select
                 name="customerId"
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
+                className="w-full p-4 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700"
                 value={formData.customerId}
                 onChange={handleChange}
                 required
               >
-                <option value="">Select patient...</option>
+                <option value="">Select customer...</option>
                 {customerData?.myCustomers?.map((cust: Customer) => (
                   <option key={cust.id} value={cust.id}>
                     {cust.name}
@@ -312,8 +310,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
 
             {/* 💎 PRICE INPUT 💎 */}
             <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-black text-emerald-600 uppercase tracking-widest ml-1">
-                Operation Fee (TRY)
+              <label className="text-xs font-semibold text-emerald-600 ml-1">
+                Fee (TRY)
               </label>
               <div className="relative">
                 <div className="absolute left-4 top-4 text-emerald-500">
@@ -324,7 +322,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                   step="0.01"
                   name="price"
                   placeholder="0.00"
-                  className="w-full pl-12 pr-4 py-4 bg-emerald-50 border-2 border-transparent rounded-2xl focus:border-emerald-500 focus:bg-white transition-all font-black text-emerald-700 outline-none"
+                  className="w-full pl-12 pr-4 py-4 bg-emerald-50 border-2 border-transparent rounded-lg focus:border-emerald-500 focus:bg-white transition-all font-semibold text-emerald-700 outline-none"
                   value={formData.price}
                   onChange={handleChange}
                   required
@@ -334,14 +332,14 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-              Operation Notes
+            <label className="text-xs font-semibold text-slate-500 ml-1">
+              Notes
             </label>
             <textarea
               name="notes"
               rows={3}
-              placeholder="Specific surgical requirements or patient notes... ✨"
-              className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700 resize-none"
+              placeholder="Add notes..."
+              className="w-full p-4 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700 resize-none"
               value={formData.notes}
               onChange={handleChange}
             />
@@ -351,21 +349,22 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 px-6 text-slate-500 font-bold hover:bg-slate-50 rounded-2xl transition-all"
+              className="flex-1 py-4 px-6 text-slate-500 font-bold hover:bg-slate-50 rounded-lg transition-all"
             >
               Cancel
             </button>
-            <button
+            <Button
               type="submit"
-              disabled={createLoading || updateLoading}
-              className="flex-2 py-4 px-6 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+              icon={initialData ? Save : CalendarClock}
+              isLoading={createLoading || updateLoading}
+              className="flex-2"
             >
               {createLoading || updateLoading
-                ? "Sterilizing Data..."
+                ? "Saving…"
                 : initialData
-                  ? "Update Operation"
-                  : "Confirm Operation"}
-            </button>
+                  ? "Save changes"
+                  : "Create appointment"}
+            </Button>
           </div>
         </form>
       </div>

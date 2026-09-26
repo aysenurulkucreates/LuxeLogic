@@ -3,7 +3,7 @@ import SideBar from "../components/shared/SideBar";
 
 const DashboardLayout = () => {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-50">
       {/* Sol taraf: Sabit Sidebar */}
       <SideBar />
 

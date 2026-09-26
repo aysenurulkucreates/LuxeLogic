@@ -10,7 +10,7 @@ import {
 } from "../../../graphql/mutations/appointments";
 import {
   CalendarClock,
-  Search,
+  Pencil,
   Trash2,
   User,
   Banknote,
@@ -19,6 +19,8 @@ import {
 import AddAppointmentModal from "../../../components/shared/AddAppointmentModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
+import Button from "../../../components/ui/Button";
+import SearchInput from "../../../components/ui/SearchInput";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../hooks/useAuth";
@@ -109,9 +111,10 @@ const AppointmentList = () => {
       refetchQueries: [{ query: GET_MY_APPOINTMENTS }],
       onCompleted: () =>
         toast.success(
-          "Vital record successfully discharged from the system. 💉",
+          "Appointment deleted.",
         ),
-      onError: (err) => alert(`Emergency! Could not delete: ${err.message}`),
+      onError: (err) =>
+        toast.error(`Could not delete appointment: ${err.message}`),
     },
   );
 
@@ -123,10 +126,10 @@ const AppointmentList = () => {
         { query: GET_DASHBOARD_STATS },
       ],
       onCompleted: () =>
-        toast.success("Clinic records synchronized. Revenue updated! 💰✨"),
+        toast.success("Appointment status updated."),
       onError: (err) =>
         toast.error(
-          `Diagnostic Error! Could not update status: ${err.message}`,
+          `Could not update status: ${err.message}`,
         ),
     },
   );
@@ -135,14 +138,7 @@ const AppointmentList = () => {
     const handleCreated = (newAppointment: Appointment) => {
       // 🚨 YENİ: console.log yerine ekrandan süzülen Toast bildirimi!
       toast.success(
-        `New appointment arrived: ${newAppointment.customer?.name}`,
-        {
-          style: {
-            borderRadius: "10px",
-            background: "#333",
-            color: "#fff",
-          },
-        },
+        `New appointment: ${newAppointment.customer?.name}`,
       );
       client.cache.updateQuery(
         {
@@ -162,7 +158,7 @@ const AppointmentList = () => {
     const handleDeleted = (deletedId: string) => {
       // 🚨 YENİ: Silinme için kırmızı hata bildirimi
       toast.error(
-        `An appointment ${deletedId} , has been removed from the system.`,
+        "An appointment was deleted.",
       );
       client.cache.updateQuery(
         {
@@ -184,24 +180,14 @@ const AppointmentList = () => {
     const handleUpdated = (updatedAppointment: Appointment) => {
       // 🚨 DÜZELTME: Artık paketi açıp hastanın adını (customer.name) kullanıyoruz!
       toast.success(
-        `${updatedAppointment?.customer?.name || "A patient"}'s appointment details have been updated!`,
-        {
-          icon: "✨",
-        },
+        `${updatedAppointment?.customer?.name || "A customer"}'s appointment was updated.`,
       );
       refetch();
     };
 
-    const handleStaffDeleted = (deletedId: string) => {
+    const handleStaffDeleted = () => {
       toast.success(
-        `A staff ${deletedId} member was removed. Updating appointment records... 🔄  `,
-        {
-          style: {
-            borderRadius: "10px",
-            background: "#333",
-            color: "#fff",
-          },
-        },
+        "A staff member was deleted. Appointments updated.",
       );
       refetch();
     };
@@ -226,7 +212,7 @@ const AppointmentList = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure? This vital record will be lost! 🚨")) {
+    if (window.confirm("Are you sure you want to delete this appointment?")) {
       await deleteAppointment({ variables: { id } });
     }
   };
@@ -247,29 +233,26 @@ const AppointmentList = () => {
   if (listError) return <ErrorState error={listError} onRetry={refetch} />;
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 text-left">
-      {/* --- 🩺 HEADER: Arama ve Başlık Bölgesi --- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight text-left">
-            Appointment
-            <span className="text-indigo-600">Operation Center</span>
+    <div className="max-w-7xl mx-auto p-8 space-y-8 animate-in fade-in duration-500 text-left">
+      {/* Başlık, arama ve birincil aksiyon */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Appointments
           </h1>
-          <p className="text-slate-500 font-medium text-left">
-            Manage all operations with surgical precision✨
+          <p className="text-sm text-slate-500 mt-1">
+            Total: {data?.myAppointments?.length || 0}
           </p>
         </div>
-        <div className="relative group w-full md:w-96">
-          <input
-            type="text"
-            placeholder="Search staff or patient..."
-            className="pl-12 pr-6 py-4 bg-slate-50 border-none rounded-2xl w-full focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700"
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <SearchInput
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={setSearchTerm}
+            placeholder="Search appointments..."
           />
-          <div className="absolute left-4 top-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
-            <Search size={24} />
-          </div>
+          <Button icon={CalendarClock} onClick={() => setIsModalOpen(true)}>
+            New appointment
+          </Button>
         </div>
       </div>
 
@@ -278,31 +261,13 @@ const AppointmentList = () => {
         aria-busy={listLoading}
         className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity ${isRefreshing ? "opacity-50" : ""}`}
       >
-        {/* ➕ YENİ RANDEVU BUTONU */}
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-indigo-50/50 border-2 border-dashed border-indigo-200 rounded-[2.5rem] p-10 flex flex-col items-center justify-center gap-4 hover:bg-indigo-50 hover:border-indigo-400 transition-all group min-h-130"
-        >
-          <div className="bg-white p-5 rounded-full shadow-md group-hover:scale-110 transition-transform duration-300">
-            <CalendarClock className="text-indigo-600 w-10 h-10" />
-          </div>
-          <div className="text-center">
-            <span className="block font-black text-xl text-indigo-700">
-              New Appointment
-            </span>
-            <span className="text-indigo-400 text-sm font-medium">
-              Add a new operation to queue
-            </span>
-          </div>
-        </button>
-
         {/* 📋 RANDEVU DÖNGÜSÜ */}
         {data?.myAppointments?.map((app: Appointment) => {
           const locked = isLocked(app.id);
           return (
             <div
               key={app.id}
-              className={`rounded-[2.5rem] p-8 shadow-sm border transition-all duration-300 relative overflow-hidden flex flex-col justify-between min-h-32.5 ${
+              className={`rounded-2xl p-8 shadow-sm border transition-all duration-300 relative overflow-hidden flex flex-col justify-between min-h-32.5 ${
                 locked
                   ? "bg-slate-50/50 opacity-60 grayscale-20 border-slate-200 pointer-events-none"
                   : "bg-white border-slate-100 hover:shadow-xl hover:-translate-y-1 group"
@@ -311,13 +276,13 @@ const AppointmentList = () => {
               {/* 🏷️ STATUS BADGE */}
               <div className="absolute top-6 right-6">
                 {locked ? (
-                  <span className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                  <span className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold shadow-sm">
                     <Lock size={12} />
-                    Editing...
+                    Editing…
                   </span>
                 ) : (
                   <span
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold ${
                       app.status === "COMPLETED"
                         ? "bg-emerald-100 text-emerald-700"
                         : app.status === "CONFIRMED"
@@ -339,7 +304,7 @@ const AppointmentList = () => {
                   className={`block w-fit ${locked ? "pointer-events-none" : ""}`}
                 >
                   <div
-                    className={`flex items-center gap-3 font-bold px-4 py-2 rounded-xl transition-colors ${
+                    className={`flex items-center gap-3 font-bold px-4 py-2 rounded-lg transition-colors ${
                       locked
                         ? "bg-slate-100 text-slate-500"
                         : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
@@ -359,7 +324,7 @@ const AppointmentList = () => {
                 {/* PATIENT & STAFF INFO */}
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">
+                    <p className="text-xs font-semibold text-slate-500 text-left">
                       Customer
                     </p>
                     <Link
@@ -367,7 +332,7 @@ const AppointmentList = () => {
                       className={locked ? "pointer-events-none" : ""}
                     >
                       <h3
-                        className={`text-2xl font-black leading-tight text-left truncate transition-colors decoration-2 underline-offset-4 ${
+                        className={`text-2xl font-semibold leading-tight text-left truncate transition-colors decoration-2 underline-offset-4 ${
                           locked
                             ? "text-slate-500"
                             : "text-slate-800 hover:text-indigo-600 hover:underline decoration-indigo-200"
@@ -387,7 +352,7 @@ const AppointmentList = () => {
                       />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">
+                      <p className="text-xs font-bold text-slate-500">
                         Assigned Staff
                       </p>
                       <p
@@ -415,13 +380,13 @@ const AppointmentList = () => {
                       }
                     />
                     <span
-                      className={`text-[10px] font-black uppercase tracking-widest ${locked ? "text-slate-400" : "text-emerald-600"}`}
+                      className={`text-xs font-semibold ${locked ? "text-slate-400" : "text-emerald-600"}`}
                     >
                       Fee
                     </span>
                   </div>
                   <span
-                    className={`text-xl font-black ${locked ? "text-slate-500" : "text-emerald-700"}`}
+                    className={`text-xl font-semibold ${locked ? "text-slate-500" : "text-emerald-700"}`}
                   >
                     ₺{app.price || 0}
                   </span>
@@ -431,7 +396,7 @@ const AppointmentList = () => {
               {/* 💎 ACTION PANEL: Butonlar */}
               <div className="pt-6 space-y-4 border-t border-slate-50">
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">
+                  <p className="text-xs font-semibold text-slate-500 text-left">
                     Update Status
                   </p>
                   <div className="grid grid-cols-2 gap-2">
@@ -447,9 +412,9 @@ const AppointmentList = () => {
                           disabled={
                             statusLoading || app.status === status || locked
                           }
-                          className={`py-2 rounded-xl text-[9px] font-black transition-all border ${
+                          className={`py-2 rounded-lg text-xs font-semibold transition-all border ${
                             app.status === status && !locked
-                              ? "bg-slate-900 border-slate-900 text-white shadow-md"
+                              ? "bg-indigo-600 border-indigo-600 text-white shadow-md"
                               : locked
                                 ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
                                 : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200"
@@ -463,33 +428,24 @@ const AppointmentList = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    icon={locked ? Lock : Pencil}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!locked) handleEdit(app);
                     }}
                     disabled={locked}
-                    className={`flex-1 py-3 rounded-xl font-black transition-colors text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 ${
-                      locked
-                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                        : "bg-slate-900 text-white hover:bg-indigo-600"
-                    }`}
+                    className="flex-1"
                   >
-                    {locked ? (
-                      <>
-                        <Lock size={14} /> Locked
-                      </>
-                    ) : (
-                      "Edit Case"
-                    )}
-                  </button>
+                    {locked ? "Locked" : "Edit"}
+                  </Button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!locked) handleDelete(app.id);
                     }}
                     disabled={deleteLoading || locked}
-                    className={`px-4 rounded-xl transition-colors border ${
+                    className={`px-4 rounded-lg transition-colors border ${
                       locked
                         ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
                         : "bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-100"
@@ -509,9 +465,9 @@ const AppointmentList = () => {
 
       {/* --- 🚨 EMPTY STATE --- */}
       {data?.myAppointments?.length === 0 && (
-        <div className="text-center py-32 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-200">
+        <div className="text-center py-32 bg-slate-50 rounded-2xl border-4 border-dashed border-slate-200">
           <p className="text-slate-400 font-bold text-xl italic">
-            No operations found in queue.✨
+            No appointments found.
           </p>
         </div>
       )}

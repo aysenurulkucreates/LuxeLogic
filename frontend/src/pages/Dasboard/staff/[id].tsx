@@ -6,6 +6,7 @@ import AddStaffModal from "../../../components/shared/AddStaffModal";
 import DetailLayout from "../../../components/shared/DetailLayout";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
+import Button from "../../../components/ui/Button";
 import { useState } from "react";
 import {
   Award,
@@ -15,6 +16,7 @@ import {
   Phone,
   Calendar,
   ClipboardList,
+  ArrowLeft,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -41,40 +43,37 @@ const StaffDetailPage = () => {
 
   if (!staff) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFC] p-20 text-center">
-        <div className="bg-white p-12 rounded-[3rem] shadow-sm border border-slate-100">
-          <h1 className="text-3xl font-black text-slate-800 mb-2">
-            No file found! 🔍
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center space-y-4">
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Staff member not found
           </h1>
-          <button
-            onClick={() => navigate("/staff")}
-            className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg"
-          >
-            ← Back to Directory
-          </button>
+          <Button icon={ArrowLeft} onClick={() => navigate("/staff")}>
+            Back to staff
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-20">
+    <div>
       <DetailLayout
         // 💎 HEADER: Professional Identity
-        title={staff.name || "Specialist Detail"}
+        title={staff.name || "Staff member"}
         backUrl="/staff" // 🩺 FIXED: Redirecting to staff directory
         onEdit={() => setIsModalOpen(true)}
         onDelete={() => {
           if (
             window.confirm(
-              "Are you sure you want to permanently remove this specialist from the roster? 🚨",
+              "Are you sure you want to delete this staff member?",
             )
           )
             deleteStaff({ variables: { id } });
         }}
         // 👤 LEFT SIDE: Specialist Identity & Status Pulse
         profileSlot={
-          <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-slate-100 overflow-hidden text-left sticky top-8">
+          <div className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-slate-100 overflow-hidden text-left sticky top-8">
             <div className="bg-indigo-600 p-8 text-white space-y-4">
               {staff.imageUrl ? (
                 <img
@@ -83,21 +82,21 @@ const StaffDetailPage = () => {
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-white/20 shadow-lg"
                 />
               ) : (
-                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center backdrop-blur-md text-2xl font-black">
+                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center backdrop-blur-md text-2xl font-semibold">
                   {staff.name?.charAt(0)}
                 </div>
               )}
               <div>
-                <h3 className="text-xl font-black">Specialist Profile</h3>
-                <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.2em]">
+                <h3 className="text-lg font-semibold">Staff member</h3>
+                <p className="text-indigo-200 text-xs font-semibold">
                   {staff.expertise}
                 </p>
               </div>
             </div>
             <div className="p-8 space-y-6">
               <div className="group">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">
-                  Onboarding Date
+                <p className="text-xs font-semibold text-slate-500 mb-1 group-hover:text-indigo-500 transition-colors">
+                  Joined
                 </p>
                 <p className="font-bold text-slate-700 text-lg">
                   {staff.createdAt
@@ -110,8 +109,8 @@ const StaffDetailPage = () => {
                 </p>
               </div>
               <div className="group">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">
-                  Primary Expertise
+                <p className="text-xs font-semibold text-slate-500 mb-1 group-hover:text-indigo-500 transition-colors">
+                  Expertise
                 </p>
                 <div className="flex items-center gap-2 text-indigo-500 font-bold text-lg">
                   <Award size={18} />
@@ -120,7 +119,7 @@ const StaffDetailPage = () => {
               </div>
               <div className="pt-4 border-t border-slate-50">
                 <div
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-semibold ${
                     staff.isActive
                       ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
                       : "bg-rose-50 text-rose-600 border border-rose-100"
@@ -138,12 +137,12 @@ const StaffDetailPage = () => {
         // 📊 TOP STATS: Operation & Affiliation
         statsSlot={
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Specialization Domain
+                <p className="text-xs font-semibold text-slate-500">
+                  Expertise
                 </p>
-                <p className="text-2xl font-black text-indigo-600 mt-1">
+                <p className="text-2xl font-semibold text-indigo-600 mt-1">
                   {staff.expertise}
                 </p>
               </div>
@@ -151,12 +150,12 @@ const StaffDetailPage = () => {
                 <Briefcase size={24} />
               </div>
             </div>
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Tenant Affiliation
+                <p className="text-xs font-semibold text-slate-500">
+                  Tenant ID
                 </p>
-                <p className="text-xl font-black text-slate-800 mt-1 font-mono uppercase">
+                <p className="text-xl font-semibold text-slate-800 mt-1 font-mono">
                   #{staff.tenantId?.slice(0, 8)}
                 </p>
               </div>
@@ -170,11 +169,11 @@ const StaffDetailPage = () => {
         mainContentSlot={
           <div className="space-y-10 text-left">
             {/* Section 1: Name & ID Header */}
-            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
-              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-2">
-                Staff Directory
+            <div className="bg-white p-10 rounded-2xl border border-slate-100 shadow-sm">
+              <p className="text-xs font-semibold text-indigo-500 mb-2">
+                Staff
               </p>
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {staff.name}
                 <span className="text-slate-300 font-light mx-4">/</span>
                 <span className="text-slate-400">
@@ -185,13 +184,13 @@ const StaffDetailPage = () => {
 
             {/* Section 2: Contact & Availability Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6 hover:shadow-md transition-shadow">
+              <div className="bg-white p-10 rounded-2xl border border-slate-100 shadow-sm space-y-6 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
                   <div className="bg-indigo-600 p-3 rounded-2xl text-white">
                     <Mail size={20} />
                   </div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Contact Channels
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Contact
                   </h2>
                 </div>
                 <div className="space-y-4">
@@ -212,13 +211,13 @@ const StaffDetailPage = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6 hover:shadow-md transition-shadow">
+              <div className="bg-white p-10 rounded-2xl border border-slate-100 shadow-sm space-y-6 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
                   <div className="bg-indigo-600 p-3 rounded-2xl text-white">
                     <Calendar size={20} />
                   </div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Work Schedule
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Schedule
                   </h2>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -226,7 +225,7 @@ const StaffDetailPage = () => {
                     staff.workDays.map((day: string) => (
                       <span
                         key={day}
-                        className="px-5 py-2.5 bg-indigo-50 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-100 shadow-sm"
+                        className="px-5 py-2.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-semibold border border-indigo-100 shadow-sm"
                       >
                         {day.slice(0, 3)}
                       </span>
@@ -240,20 +239,20 @@ const StaffDetailPage = () => {
               </div>
             </div>
 
-            {/* Section 3: Professional Biography Card */}
-            <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white shadow-2xl shadow-indigo-900/10 space-y-6">
+            {/* Section 3: Bio Card */}
+            <div className="bg-slate-900 p-10 rounded-2xl text-white shadow-2xl shadow-indigo-900/10 space-y-6">
               <div className="flex items-center gap-4 border-b border-white/10 pb-6">
                 <div className="bg-white/10 p-3 rounded-2xl text-indigo-400">
                   <ClipboardList size={20} />
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white">
-                  Professional Biography
+                <h2 className="text-lg font-semibold text-white">
+                  Bio
                 </h2>
               </div>
-              <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-sm">
+              <div className="bg-white/5 p-8 rounded-2xl border border-white/5 backdrop-blur-sm">
                 <p className="text-slate-300 text-lg leading-relaxed italic font-medium">
                   {staff.bio ||
-                    "No professional biography or clinical observations have been recorded for this specialist yet. 💉"}
+                    "No bio added yet."}
                 </p>
               </div>
             </div>

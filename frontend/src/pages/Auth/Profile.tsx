@@ -13,10 +13,10 @@ const ProfilePage = () => {
   const me = data?.me;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-8">User Profile</h1>
+    <div className="p-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-semibold text-slate-900 mb-8">Profile</h1>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         {/* Üst Kısım / Header */}
         <div className="h-32 bg-linear-to-r from-indigo-500 to-purple-600"></div>
 
@@ -37,7 +37,7 @@ const ProfilePage = () => {
                 )}
 
                 {/* Hover olunca çıkan kamera ikonu */}
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                   <Camera size={24} className="text-white" />
                 </div>
               </div>
@@ -59,23 +59,23 @@ const ProfilePage = () => {
             {/* Sol Kolon: Temel Bilgiler */}
             <div className="space-y-6">
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-slate-500">
                   Email Address
                 </label>
-                <div className="flex items-center mt-1 text-gray-700">
+                <div className="flex items-center mt-1 text-slate-700">
                   <Mail size={18} className="mr-2 text-indigo-400" />
                   <span className="font-medium">{me?.email}</span>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-slate-500">
                   Access Level (Role)
                 </label>
                 <div className="flex items-center mt-1">
                   <Shield size={18} className="mr-2 text-indigo-400" />
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-bold ${
                       me?.role === "SUPER_ADMIN"
                         ? "bg-purple-100 text-purple-700"
                         : "bg-blue-100 text-blue-700"
@@ -90,16 +90,16 @@ const ProfilePage = () => {
             {/* Sağ Kolon: Şirket Bilgileri */}
             <div className="space-y-6">
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+                <label className="text-xs font-semibold text-slate-500 block mb-1">
                   Organization Info
                 </label>
-                <div className="flex items-center text-gray-700">
+                <div className="flex items-center text-slate-700">
                   <Building size={18} className="mr-2 text-indigo-400" />
                   <span className="font-semibold text-sm">
                     {me?.tenant?.name || "Luxe Clinic"}
                   </span>
                 </div>
-                <div className="text-[10px] text-gray-400 mt-1 font-mono pl-7">
+                <div className="text-xs text-slate-500 mt-1 font-mono pl-7">
                   ID: {me?.tenantId}
                 </div>
               </div>

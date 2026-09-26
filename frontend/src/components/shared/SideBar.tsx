@@ -100,7 +100,7 @@ const Sidebar: React.FC = () => {
 
   // Ortak tasarım sınıflarımız
   const commonStyles =
-    "flex items-center gap-3 px-4 py-3 rounded-xl transition w-full font-medium";
+    "flex items-center gap-3 px-4 py-3 rounded-lg transition w-full font-medium";
 
   // Tekrarlanan render mantığını bir fonksiyonla sadeleştirelim
   const renderItem = (item: MenuItem) => {
@@ -120,7 +120,7 @@ const Sidebar: React.FC = () => {
         className={({ isActive }) =>
           `${commonStyles} ${
             isActive
-              ? "bg-indigo-50 text-indigo-600 shadow-sm"
+              ? "bg-indigo-600 text-white"
               : "text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
           }`
         }
