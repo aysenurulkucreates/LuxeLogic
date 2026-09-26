@@ -135,7 +135,7 @@ const AppointmentDetailPage = () => {
                   Fee
                 </p>
                 <p className="text-3xl font-semibold text-indigo-600 mt-1">
-                  ₺{appointment.price || 0}
+                  ${appointment.price || 0}
                 </p>
               </div>
               <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-600">

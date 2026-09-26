@@ -273,7 +273,7 @@ const ProductList: React.FC = () => {
                           locked ? "text-slate-400" : "text-emerald-500"
                         }
                       />
-                      ₺{product.price.toLocaleString()}
+                      ${product.price.toLocaleString()}
                     </div>
                     <div
                       className={`flex items-center gap-2 text-xs font-semibold ${

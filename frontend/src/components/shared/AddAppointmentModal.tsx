@@ -311,7 +311,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             {/* 💎 PRICE INPUT 💎 */}
             <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-semibold text-emerald-600 ml-1">
-                Fee (TRY)
+                Fee ($)
               </label>
               <div className="relative">
                 <div className="absolute left-4 top-4 text-emerald-500">

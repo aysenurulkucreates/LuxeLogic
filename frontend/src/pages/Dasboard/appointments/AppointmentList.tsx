@@ -389,7 +389,7 @@ const AppointmentList = () => {
                   <span
                     className={`text-xl font-semibold ${locked ? "text-slate-500" : "text-emerald-700"}`}
                   >
-                    ₺{app.price || 0}
+                    ${app.price || 0}
                   </span>
                 </div>
               </div>
