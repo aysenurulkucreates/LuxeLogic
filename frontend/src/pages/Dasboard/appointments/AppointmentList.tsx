@@ -24,7 +24,6 @@ import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
 
@@ -71,18 +70,11 @@ const AppointmentList = () => {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
 
-  const userTenantId = user?.tenantId;
-
-  const socket = useSocket(userTenantId);
+  const socket = useSocket();
   // kilit hafızası
-  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
-    socket,
-    userTenantId,
-    user?.email,
-  );
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
 
   // --- SEARCH DEBOUNCE (Sızıntı Önleyici 💉) ---
   useEffect(() => {

@@ -17,18 +17,9 @@ import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
 import toast from "react-hot-toast";
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-  tenantId: string;
-}
 
 interface Customer {
   id: string;
@@ -45,17 +36,10 @@ const CustomerList: React.FC = () => {
     null,
   );
 
-  const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
-  const userTenantId = user?.tenantId;
-
-  const socket = useSocket(userTenantId);
+  const socket = useSocket();
   //  Telsizden gelen kilitli hasta ID'lerini tutan radar hafızamız
-  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
-    socket,
-    userTenantId,
-    user?.email,
-  );
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);

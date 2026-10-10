@@ -20,18 +20,8 @@ import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import toast from "react-hot-toast";
-import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
-
-// User Interface'i
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-  tenantId: string; // İşte altın anahtarımız!
-}
 
 interface Staff {
   id: string;
@@ -52,17 +42,10 @@ const StaffList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
 
-  const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
 
-  const userTenantId = user?.tenantId;
-
-  const socket = useSocket(userTenantId);
-  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
-    socket,
-    userTenantId,
-    user?.email,
-  );
+  const socket = useSocket();
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
 
   useEffect(() => {
     const timer = setTimeout(() => {

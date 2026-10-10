@@ -11,17 +11,7 @@ import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import toast from "react-hot-toast";
-import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
-
-// User Interface'i
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-  tenantId: string; // İşte altın anahtarımız!
-}
 
 interface Product {
   id: string;
@@ -54,12 +44,9 @@ const SaleList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
-  const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
 
-  const userTenantId = user?.tenantId;
-
-  const socket = useSocket(userTenantId);
+  const socket = useSocket();
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);

@@ -3,11 +3,7 @@ import type { Socket } from "socket.io-client";
 
 // Başka bir kullanıcının düzenlemekte olduğu kayıtları takip eder ve
 // düzenleme başlarken/biterken kilit anonslarını yayınlar.
-export const useRecordLock = (
-  socket: Socket,
-  tenantId?: string,
-  userEmail?: string,
-) => {
+export const useRecordLock = (socket: Socket) => {
   const [lockedRecords, setLockedRecords] = useState<string[]>([]);
 
   useEffect(() => {
@@ -34,22 +30,17 @@ export const useRecordLock = (
 
   const lockRecord = useCallback(
     (recordId: string) => {
-      if (!tenantId) return;
-      socket.emit("lock_record", {
-        tenantId,
-        recordId,
-        userEmail: userEmail || "Staff",
-      });
+      socket.emit("lock_record", { recordId });
     },
-    [socket, tenantId, userEmail],
+    [socket],
   );
 
   const unlockRecord = useCallback(
     (recordId?: string) => {
-      if (!recordId || !tenantId) return;
-      socket.emit("unlock_record", { tenantId, recordId });
+      if (!recordId) return;
+      socket.emit("unlock_record", { recordId });
     },
-    [socket, tenantId],
+    [socket],
   );
 
   return { isLocked, lockRecord, unlockRecord };
