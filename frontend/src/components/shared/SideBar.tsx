@@ -46,32 +46,28 @@ const Sidebar: React.FC = () => {
       path: "/overview",
       icon: LayoutDashboard,
       // Sekreter finansal özetleri görmesin, doktor ve admin görsün
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"],
+      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
     {
       name: "Appointments",
       path: "/appointments",
       icon: CalendarClock,
-      // Herkes randevuları görmeli (Kısıtlama yok, o yüzden allowedRoles yazmıyoruz)
     },
     {
       name: "Customers",
       path: "/customers",
       icon: Users,
-      // Hastaları/Müşterileri herkes görebilir
     },
     {
       name: "Products",
       path: "/products",
       icon: Package,
-      // Sadece yöneticiler ve belki doktorlar stokları görebilir
       allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"],
     },
     {
       name: "Staff",
       path: "/staff",
       icon: Contact,
-      //  Personel maaşları/ayarlarını SADECE yöneticiler görebilir!
       allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
     {
