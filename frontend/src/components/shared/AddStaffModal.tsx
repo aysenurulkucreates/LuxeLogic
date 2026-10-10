@@ -68,9 +68,16 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
   const [createStaff, { loading: createLoading }] = useMutation(CREATE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
-    onCompleted: () => {
+    onCompleted: (data) => {
+      const tempPassword = data?.createStaff?.tempPassword;
       onClose();
-      setFormData(initialFormState); // 🧼 Tertemiz resetleme
+      setFormData(initialFormState);
+      if (tempPassword) {
+        toast.success(
+          `Staff added. temporaray password: ${tempPassword} - share it with them; they'll change it on first login.`,
+          { duration: 15000 },
+        );
+      }
     },
     onError: (err) => toast.error(`Could not add staff: ${err.message}`),
   });

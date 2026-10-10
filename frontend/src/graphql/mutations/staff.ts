@@ -3,17 +3,20 @@ import { gql } from "@apollo/client";
 export const CREATE_STAFF = gql`
   mutation CreateStaff($input: CreateStaffInput!) {
     createStaff(input: $input) {
-      id
-      tenantId
-      name
-      email
-      phone
-      expertise
-      workDays
-      isActive
-      imageUrl
-      bio
-      role
+      staff {
+        id
+        tenantId
+        name
+        email
+        phone
+        expertise
+        workDays
+        isActive
+        imageUrl
+        bio
+        role
+      }
+      tempPassword
     }
   }
 `;

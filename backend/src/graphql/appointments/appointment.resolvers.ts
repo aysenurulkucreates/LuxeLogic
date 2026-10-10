@@ -1,4 +1,5 @@
 import { myContext } from "../../context/context.js";
+import { forbidden, unauthenticated } from "../../lib/errors.js";
 
 export const appointmentResolvers = {
   Query: {
@@ -8,7 +9,7 @@ export const appointmentResolvers = {
       { input = {} }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      if (!user) throw unauthenticated();
 
       const cleanSearch = input.searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -244,7 +245,14 @@ export const appointmentResolvers = {
       { id, status }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw new Error("Authenticated required!");
+      if (!user) throw unauthenticated();
+
+      const appointment = await prisma.appointment.findFirst({
+        where: { id, tenantId: user.tenantId },
+      });
+
+      if (!appointment)
+        throw forbidden("Appointment not found or access denied.");
 
       const updatedAppointment = await prisma.appointment.update({
         where: { id },

@@ -1,15 +1,12 @@
 import { Navigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  // localStorage'da token olup olmadığına bakıyoruz
-  const token = localStorage.getItem("token");
+  const { isAuthenticated } = useAuth();
 
-  // Eğer token yoksa, kullanıcıyı zorla Giriş (Signin) sayfasına fırlatıyoruz
-  if (!token) {
+  if (!isAuthenticated) {
     return <Navigate to="/signin" replace />;
   }
-
-  // Eğer token varsa, gitmek istediği sayfayı (children) gösteriyoruz
   return children;
 };
 

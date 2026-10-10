@@ -30,13 +30,15 @@ const VARIANT_CONFIG: Record<
   auth: {
     icon: LogIn,
     title: "Session expired",
-    defaultMessage: "Your session has expired. Please log in again to continue.",
+    defaultMessage:
+      "Your session has expired. Please log in again to continue.",
   },
 };
 
 const LAYOUT_CLASSES: Record<"page" | "modal", string> = {
   page: "flex flex-col items-center justify-center text-center min-h-[60vh] max-w-7xl mx-auto p-8 space-y-5",
-  modal: "flex flex-col items-center justify-center text-center h-full min-h-96 px-6 py-10 space-y-5",
+  modal:
+    "flex flex-col items-center justify-center text-center h-full min-h-96 px-6 py-10 space-y-5",
 };
 
 const ErrorState: React.FC<ErrorStateProps> = ({
@@ -68,7 +70,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({
         </Link>
       ) : (
         onRetry && (
-          <Button icon={RotateCw} onClick={onRetry}>
+          <Button icon={RotateCw} onClick={() => onRetry()}>
             Retry
           </Button>
         )

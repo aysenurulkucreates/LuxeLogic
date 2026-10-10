@@ -1,5 +1,9 @@
 import { myContext } from "../../context/context.js";
+import { unauthenticated, forbidden, badInput } from "../../lib/errors.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+
+const ASSIGNABLE_ROLES = ["TENANT_ADMIN", "DOCTOR", "NURSE", "STAFF"];
 
 export const staffResolvers = {
   Query: {
@@ -52,7 +56,11 @@ export const staffResolvers = {
       { input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw new Error("You must be logged in.");
+      if (!user) throw unauthenticated();
+
+      // çağıran yetkili mi? sadece TENANT_ADMIN ve SUPER_ADMIN staff ekleyebilir.
+      if (user.role !== "TENANT_ADMIN" && user.role !== "SUPER_ADMIN")
+        throw forbidden();
 
       const {
         name,
@@ -66,11 +74,14 @@ export const staffResolvers = {
         role,
       } = input;
 
+      if (user.role === "TENANT_ADMIN" && !ASSIGNABLE_ROLES.includes(role))
+        throw forbidden("You can not assign this role");
+
       const targetTenantId =
         user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
 
       if (!targetTenantId) {
-        throw new Error("Target tenant ID is required for this operation.");
+        throw badInput("");
       }
 
       try {
@@ -79,7 +90,8 @@ export const staffResolvers = {
         if (existingUser)
           throw new Error("This email is already registered to another user.");
 
-        const hashedPassword = await bcrypt.hash("Staff123", 10);
+        const tempPassword = crypto.randomBytes(9).toString("base64url");
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
         // sisteme girş yapması için user oluşturuyoruz.
         await prisma.user.create({
@@ -109,7 +121,7 @@ export const staffResolvers = {
 
         io.to(targetTenantId).emit("staff_created", newStaff);
 
-        return newStaff;
+        return { staff: newStaff, tempPassword };
       } catch (err: any) {
         if (err.code === "P2002") {
           throw new Error(

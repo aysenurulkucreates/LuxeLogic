@@ -1,4 +1,5 @@
 import { myContext } from "../../context/context.js";
+import { forbidden, unauthenticated } from "../../lib/errors.js";
 
 export const customerResolvers = {
   Query: {
@@ -8,9 +9,8 @@ export const customerResolvers = {
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) {
-        throw new Error("You must log in to view this list.");
-      }
+      if (!user) throw unauthenticated();
+
       const cleanSearch = searchTerm?.trim();
       const searchFilter = searchTerm
         ? {
@@ -25,15 +25,20 @@ export const customerResolvers = {
 
       if (user.role === "SUPER_ADMIN") {
         return await prisma.customer.findMany({
-          where: searchFilter,
+          where: {
+            tenantId: user.tenantId,
+            ...searchFilter,
+          },
         });
       }
 
       const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF", "NURSE"];
+
       if (allowedRoles.includes(user.role)) {
         return await prisma.customer.findMany({
           where: {
             tenantId: user.tenantId,
+            deletedAt: null,
             ...searchFilter,
           },
         });
@@ -51,6 +56,7 @@ export const customerResolvers = {
         where: {
           id: id,
           ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          deletedAt: null,
         },
       });
 
@@ -100,33 +106,30 @@ export const customerResolvers = {
       { id }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user)
-        throw new Error("You must be logged in to perform this action.");
+      if (!user) throw unauthenticated();
 
-      const where = {
-        id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+      const customer = await prisma.customer.findFirst({
+        where: {
+          id,
+          ..._(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          deletedAt: null,
+        },
+      });
+
+      if (!customer) throw forbidden("Customer not found or access denied.");
+
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { deletedAt: new Date() },
+      });
+
+      io.to(customer.tenantId).emir("customer_deleted", id);
+
+      return {
+        deletedId: id,
+        success: true,
+        message: "Customer deleted",
       };
-
-      try {
-        await prisma.appointment.deleteMany({ where: { customerId: id } });
-
-        const deleted = await prisma.customer.delete({ where });
-
-        if (deleted.count === 0)
-          throw new Error("Customer not found or you do not have permission.");
-
-        io.to(deleted.tenantId).emit("customer_deleted", id);
-
-        return {
-          deletedId: id,
-          success: true,
-          message: "Customer succesfully deleted!",
-        };
-      } catch (err) {
-        console.error("Error deleting customer:", err);
-        throw new Error("Failed to delete customer.");
-      }
     },
     updateCustomer: async (
       _: any,

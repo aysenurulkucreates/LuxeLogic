@@ -35,8 +35,8 @@ const Sidebar: React.FC = () => {
     logout: () => void;
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/signin");
   };
 
@@ -78,7 +78,6 @@ const Sidebar: React.FC = () => {
       name: "Sales",
       path: "/sales",
       icon: HandCoins,
-      // 🚨 FİNANS: Kasayı sadece yöneticiler görebilir!
       allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
   ];
