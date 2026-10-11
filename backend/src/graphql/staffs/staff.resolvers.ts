@@ -28,8 +28,11 @@ export const staffResolvers = {
         : {};
 
       return await prisma.staff.findMany({
-        where: user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
-        ...searchFilter,
+        where: {
+          ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
+          isActive: true,
+          ...searchFilter,
+        },
       });
     },
     getStaff: async (
@@ -43,6 +46,7 @@ export const staffResolvers = {
         where: {
           id: id,
           ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          isActive: true,
         },
       });
 
@@ -137,34 +141,31 @@ export const staffResolvers = {
       { id }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) {
-        throw new Error("You must be logged in to perform this action.");
-      }
+      if (!user) throw unauthenticated();
 
-      const where = {
-        id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+      // önce sahiplik, personeli kendi kliniğinde ara.
+      const staff = await prisma.staff.findFirst({
+        where: {
+          id,
+          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+        },
+      });
+
+      if (!staff) throw forbidden("Staff not found or access denied.");
+
+      // silme yok, pasifleştir, randevlara dokunma
+      await prisma.staff.update({
+        where: { id: staff.id },
+        data: { isActive: false },
+      });
+
+      io.to(staff.tenantId).emit("staff_deleted", id);
+
+      return {
+        deletedId: id,
+        success: true,
+        message: "Staff member deactivated",
       };
-
-      try {
-        await prisma.appointment.deleteMany({ where: { staffId: id } });
-
-        const deleted = await prisma.staff.delete({ where });
-
-        if (deleted.count === 0)
-          throw new Error("Staff not found or you do not have permission.");
-
-        io.to(deleted.tenantId).emit("staff_deleted", id);
-
-        return {
-          deletedId: id,
-          success: true,
-          message: "Staff member successfully deleted.",
-        };
-      } catch (err) {
-        console.error("Error deleting staff:", err);
-        throw new Error("Failed to delete staff.");
-      }
     },
     updateStaff: async (
       _: any,
