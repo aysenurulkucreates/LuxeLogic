@@ -3,6 +3,8 @@ import { useMutation } from "@apollo/client";
 import { SIGNUP_MUTATION } from "../../graphql/mutations/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { UserPlus, Building2, Link2, Mail, Lock } from "lucide-react";
+import Button from "../../components/ui/Button";
 
 const Signup: React.FC = () => {
   const { login } = useAuth();
@@ -41,13 +43,14 @@ const Signup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-7xl w-full flex bg-white rounded-3xl shadow-2xl overflow-hidden m-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="max-w-7xl w-full flex bg-white rounded-2xl shadow-2xl overflow-hidden m-4">
         {/* SOL TARAF: Görsel ve Karşılama (Signin ile tutarlı) */}
-        <div className="w-1/2 bg-blue-600 p-12 flex flex-col justify-between text-white relative">
+        <div className="w-1/2 bg-indigo-600 p-12 flex flex-col justify-between text-white relative">
           {/* Arka plan görseli ve mavi overlay buraya gelecek (Tailwind ile bg-image veya img tag) */}
           <div className="relative z-10">
-            <h1 className="text-4xl font-bold mb-4">LuxeLogic</h1>
+            {/* Marka adı; sayfanın H1'i sağdaki form başlığı */}
+            <p className="text-4xl font-bold mb-4">LuxeLogic</p>
             <p className="text-xl">
               Create and start managing your own clinic or company in seconds.
             </p>
@@ -71,8 +74,10 @@ const Signup: React.FC = () => {
         {/* SAĞ TARAF: Signup Formu */}
         <div className="w-1/2 p-16 flex flex-col justify-center">
           <div className="mb-10 text-center">
-            <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Create account
+            </h1>
+            <p className="text-slate-600 mt-2">
               Enter your company and user information.
             </p>
           </div>
@@ -80,8 +85,8 @@ const Signup: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Hata Mesajı Alanı */}
             {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm border border-red-200">
-                ⚠️ {error}
+              <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-200">
+                {error}
               </div>
             )}
 
@@ -89,14 +94,14 @@ const Signup: React.FC = () => {
             <div className="space-y-1">
               <label
                 htmlFor="tenantName"
-                className="text-sm font-medium text-gray-700"
+                className="text-sm font-medium text-slate-700"
               >
                 Company / Clinic Name
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
                   {/* Building/Hospital Icon */}
-                  🏢
+                  <Building2 size={18} />
                 </span>
                 <input
                   id="tenantName"
@@ -105,7 +110,7 @@ const Signup: React.FC = () => {
                   value={tenantName}
                   onChange={(e) => setTenantName(e.target.value)}
                   placeholder="Enter your clinic name."
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 />
               </div>
             </div>
@@ -114,14 +119,14 @@ const Signup: React.FC = () => {
             <div className="space-y-1">
               <label
                 htmlFor="slug"
-                className="text-sm font-medium text-gray-700"
+                className="text-sm font-medium text-slate-700"
               >
                 System Address (Slug)
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
                   {/* Link Icon */}
-                  🔗
+                  <Link2 size={18} />
                 </span>
                 <input
                   id="slug"
@@ -130,12 +135,12 @@ const Signup: React.FC = () => {
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="your-clinic-name"
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1 pl-1">
+              <p className="text-xs text-slate-500 mt-1 pl-1">
                 Example:{" "}
-                <span className="font-mono bg-gray-100 px-1 rounded">
+                <span className="font-mono bg-slate-100 px-1 rounded-lg">
                   luxelogic.com/your-clinic-name
                 </span>
               </p>
@@ -145,14 +150,14 @@ const Signup: React.FC = () => {
             <div className="space-y-1">
               <label
                 htmlFor="email"
-                className="text-sm font-medium text-gray-700"
+                className="text-sm font-medium text-slate-700"
               >
                 E-mail Address
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
                   {/* Mail Icon */}
-                  ✉️
+                  <Mail size={18} />
                 </span>
                 <input
                   id="email"
@@ -161,7 +166,7 @@ const Signup: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@mail.com"
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 />
               </div>
             </div>
@@ -170,14 +175,14 @@ const Signup: React.FC = () => {
             <div className="space-y-1">
               <label
                 htmlFor="password"
-                className="text-sm font-medium text-gray-700"
+                className="text-sm font-medium text-slate-700"
               >
                 Password
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
                   {/* Lock Icon */}
-                  🔒
+                  <Lock size={18} />
                 </span>
                 <input
                   id="password"
@@ -186,36 +191,33 @@ const Signup: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 />
               </div>
             </div>
 
             {/* Kayıt Ol Butonu */}
             <div>
-              <button
+              <Button
                 type="submit"
-                disabled={loading}
-                className={`w-full py-4 rounded-xl font-semibold text-lg transition ${
-                  loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                }`}
+                icon={UserPlus}
+                isLoading={loading}
+                className="w-full"
               >
-                {loading ? "Being recorded..." : "Signup"}
-              </button>
+                {loading ? "Creating account…" : "Create account"}
+              </Button>
             </div>
           </form>
 
           {/* Giriş Yap Linki */}
           <div className="mt-10 text-center">
-            <p className="text-gray-600">
+            <p className="text-slate-600">
               Already have an account?{" "}
               <a
                 href="/signin"
-                className="font-medium text-blue-600 hover:text-blue-500 transition"
+                className="font-medium text-indigo-600 hover:text-indigo-700 transition"
               >
-                Signin
+                Sign in
               </a>
             </p>
           </div>

@@ -7,7 +7,8 @@ import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import DetailLayout from "../../../components/shared/DetailLayout";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
-import { Mail, Phone } from "lucide-react";
+import Button from "../../../components/ui/Button";
+import { ArrowLeft, Mail, Phone } from "lucide-react";
 import toast from "react-hot-toast";
 
 const CustomerDetailPage = () => {
@@ -32,17 +33,16 @@ const CustomerDetailPage = () => {
 
   if (!customer) {
     return (
-      <div className="p-20 text-center">
-        <h1 className="text-2xl font-black text-slate-800">
-          No patient file found! 🔍
-        </h1>
-        <p className="text-slate-500 mb-4">ID: {id}</p>
-        <button
-          onClick={() => navigate("/customers")}
-          className="bg-slate-100 px-6 py-2 rounded-xl font-bold"
-        >
-          ← Back to Directory
-        </button>
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center space-y-4">
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Customer not found
+          </h1>
+          <p className="text-sm text-slate-500">ID: {id}</p>
+          <Button icon={ArrowLeft} onClick={() => navigate("/customers")}>
+            Back to customers
+          </Button>
+        </div>
       </div>
     );
   }
@@ -54,13 +54,13 @@ const CustomerDetailPage = () => {
         backUrl="/customers"
         onEdit={() => setIsModalOpen(true)}
         onDelete={() => {
-          if (window.confirm("Delete this patient?"))
+          if (window.confirm("Are you sure you want to delete this customer?"))
             deleteCustomer({ variables: { id } });
         }}
         // 👤 SOL TARAF: PROFIL (Sadece sendeki veriler!)
         profileSlot={
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6 text-left">
-            <div className="w-20 h-20 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-3xl font-black mx-auto lg:mx-0">
+          <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6 text-left">
+            <div className="w-20 h-20 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-3xl font-semibold mx-auto lg:mx-0">
               {customer.name.charAt(0)}
             </div>
             <div className="space-y-4">
@@ -76,18 +76,18 @@ const CustomerDetailPage = () => {
         // 🏥 ANA BÖLGE: GENEL BİLGİLER
         mainContentSlot={
           <div className="space-y-6 text-left">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              Patient File Summary
+            <h2 className="text-lg font-semibold text-slate-900">
+              Summary
             </h2>
-            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-              <p className="text-sm text-slate-500 font-bold uppercase mb-2">
-                Internal System ID
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              <p className="text-sm text-slate-500 font-bold mb-2">
+                Customer ID
               </p>
               <code className="text-indigo-600 font-mono text-sm">
                 {customer.id}
               </code>
-              <p className="text-sm text-slate-500 font-bold uppercase mt-4 mb-2">
-                Tenant Association
+              <p className="text-sm text-slate-500 font-bold mt-4 mb-2">
+                Tenant ID
               </p>
               <code className="text-slate-600 font-mono text-sm">
                 {customer.tenantId}

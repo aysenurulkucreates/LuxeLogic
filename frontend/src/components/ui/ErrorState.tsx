@@ -2,6 +2,7 @@ import React from "react";
 import { WifiOff, AlertTriangle, LogIn, RotateCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getErrorVariant, type ErrorVariant } from "../../lib/errorVariant";
+import Button, { primaryButtonClasses } from "./Button";
 
 interface ErrorStateProps {
   error: unknown;
@@ -29,13 +30,15 @@ const VARIANT_CONFIG: Record<
   auth: {
     icon: LogIn,
     title: "Session expired",
-    defaultMessage: "Your session has expired. Please log in again to continue.",
+    defaultMessage:
+      "Your session has expired. Please log in again to continue.",
   },
 };
 
 const LAYOUT_CLASSES: Record<"page" | "modal", string> = {
-  page: "flex flex-col items-center justify-center text-center min-h-[60vh] max-w-7xl mx-auto px-6 py-16 space-y-5",
-  modal: "flex flex-col items-center justify-center text-center h-full min-h-96 px-6 py-10 space-y-5",
+  page: "flex flex-col items-center justify-center text-center min-h-[60vh] max-w-7xl mx-auto p-8 space-y-5",
+  modal:
+    "flex flex-col items-center justify-center text-center h-full min-h-96 px-6 py-10 space-y-5",
 };
 
 const ErrorState: React.FC<ErrorStateProps> = ({
@@ -61,22 +64,15 @@ const ErrorState: React.FC<ErrorStateProps> = ({
       </div>
 
       {variant === "auth" ? (
-        <Link
-          to="/signin"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors"
-        >
+        <Link to="/signin" className={primaryButtonClasses}>
           <LogIn size={16} />
           Log in
         </Link>
       ) : (
         onRetry && (
-          <button
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors"
-          >
-            <RotateCw size={16} />
+          <Button icon={RotateCw} onClick={() => onRetry()}>
             Retry
-          </button>
+          </Button>
         )
       )}
     </div>

@@ -26,26 +26,6 @@ export const userResolvers = {
       return foundUser;
     },
     // users
-    getUser: async (
-      _: any,
-      { id }: { id: string },
-      { prisma, user }: myContext,
-    ) => {
-      // thanks to this control, red errors won't up on the screen, the site won't crash, only an error will be returned.
-      if (!user) return null;
-
-      return await prisma.user.findUnique({
-        where: { id },
-        // here, by using select instead of include, we retrieve only the necessary information from the database instead of pulling all the information, thus preventing the password from being stored in RAM.
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          profileImage: true,
-          tenantId: true,
-        },
-      });
-    },
     users: async (_: any, __: any, { prisma, user }: myContext) => {
       // RBAC(Role-Based Access Control) is implemented here.
       // To avoid code repetition (DRY), we define a dynamic 'queryConditions',

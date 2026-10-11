@@ -3,6 +3,8 @@ import { SIGNIN_MUTATION } from "../../graphql/mutations/auth";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { LogIn } from "lucide-react";
+import Button from "../../components/ui/Button";
 
 const Signin = () => {
   const { login } = useAuth();
@@ -34,11 +36,13 @@ const Signin = () => {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
         {/* Logo ve Başlık Bölümü */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-xl mb-4 shadow-lg shadow-indigo-200">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-lg mb-4 shadow-lg shadow-indigo-200">
             <span className="text-white text-2xl font-bold">L</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-800">LuxeLogic</h1>
-          <p className="text-slate-500 mt-2">Login to the Admin Panel</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Sign in</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Sign in to your LuxeLogic account
+          </p>
         </div>
 
         {/* Giriş Formu */}
@@ -78,13 +82,14 @@ const Signin = () => {
             />
           </div>
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg shadow-indigo-100 transition-all active:scale-95"
+            icon={LogIn}
+            isLoading={loading}
+            className="w-full"
           >
-            {loading ? "Signing..." : "Signin"}
-          </button>
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
         </form>
 
         <div className="mt-8 text-center text-sm text-slate-500">
@@ -93,7 +98,7 @@ const Signin = () => {
             href="/signup"
             className="text-indigo-600 font-semibold hover:underline"
           >
-            Signup
+            Sign up
           </a>
         </div>
       </div>

@@ -1,10 +1,7 @@
 export const userTypeDef = `#graphql
   type Query {
     me: User
-
-   getUser(id: ID!): User
    users: [User]
-    
   }
 
   type Mutation {
@@ -16,7 +13,6 @@ export const userTypeDef = `#graphql
   type User {
    id: ID!
    email: String!
-   password: String!
    role: Role!
    profileImage: String!
 

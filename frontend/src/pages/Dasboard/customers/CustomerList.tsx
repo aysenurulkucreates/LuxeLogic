@@ -3,31 +3,23 @@ import { useMutation, useQuery, useApolloClient } from "@apollo/client";
 import { GET_MY_CUSTOMERS } from "../../../graphql/queries/auth";
 import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
 import {
-  Search,
   UserPlus,
   Mail,
   Phone,
   Pencil,
   Trash2,
-  Users,
   Lock,
 } from "lucide-react";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
+import Button from "../../../components/ui/Button";
+import SearchInput from "../../../components/ui/SearchInput";
+import EmptyState from "../../../components/ui/EmptyState";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
 import toast from "react-hot-toast";
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-  tenantId: string;
-}
 
 interface Customer {
   id: string;
@@ -44,17 +36,10 @@ const CustomerList: React.FC = () => {
     null,
   );
 
-  const { user } = useAuth() as { user: User | null };
   const client = useApolloClient();
-  const userTenantId = user?.tenantId;
-
-  const socket = useSocket(userTenantId);
+  const socket = useSocket();
   //  Telsizden gelen kilitli hasta ID'lerini tutan radar hafızamız
-  const { isLocked, lockRecord, unlockRecord } = useRecordLock(
-    socket,
-    userTenantId,
-    user?.email,
-  );
+  const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
@@ -77,15 +62,13 @@ const CustomerList: React.FC = () => {
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     refetchQueries: [{ query: GET_MY_CUSTOMERS }],
     onCompleted: () =>
-      toast.success("Customer successfully discharged from the system."),
+      toast.success("Customer deleted."),
     onError: (err) => toast.error(`Could not delete customer: ${err.message}`),
   });
 
   useEffect(() => {
     const handleCreated = (newCustomer: Customer) => {
-      toast.success(`New customer arrived: ${newCustomer.name}`, {
-        style: { borderRadius: "10px", background: "#333", color: "#fff" },
-      });
+      toast.success(`New customer added: ${newCustomer.name}`);
       client.cache.updateQuery(
         {
           query: GET_MY_CUSTOMERS,
@@ -99,7 +82,7 @@ const CustomerList: React.FC = () => {
     };
 
     const handleDeleted = (deletedId: string) => {
-      toast.error(`A customer has been removed from the system.`);
+      toast.error("A customer was deleted.");
       client.cache.updateQuery(
         {
           query: GET_MY_CUSTOMERS,
@@ -117,9 +100,7 @@ const CustomerList: React.FC = () => {
     };
 
     const handleUpdated = (updatedCustomer: Customer) => {
-      toast.success(`${updatedCustomer.name}'s profile has been updated!`, {
-        icon: "✨",
-      });
+      toast.success(`${updatedCustomer.name} was updated.`);
       refetch();
     };
 
@@ -164,50 +145,32 @@ const CustomerList: React.FC = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
-      {/* Arama ve Buton Kısmı */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-8">
-        <div className="relative max-w-md w-full group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-          </div>
-          <input
-            type="text"
-            placeholder="Search customers by name or email..."
-            className="block w-full pl-12 pr-4 py-4 border border-slate-200 rounded-2xl bg-white shadow-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none font-medium"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-black active:scale-95"
-        >
-          <UserPlus size={20} />
-          Add New Customer
-        </button>
-      </div>
-
-      <div className="mb-8 flex items-end justify-between">
+      {/* Başlık, arama ve birincil aksiyon */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-            Customer Directory
-          </h1>
-          <p className="text-slate-500 text-sm mt-2 font-bold uppercase tracking-widest flex items-center gap-2">
-            <Users size={16} className="text-indigo-500" />
-            Total Registered:{" "}
-            <span className="text-indigo-600">
-              {data?.myCustomers?.length || 0}
-            </span>
+          <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Total: {data?.myCustomers?.length || 0}
           </p>
         </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search customers..."
+          />
+          <Button icon={UserPlus} onClick={() => setIsModalOpen(true)}>
+            Add customer
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
-        <div className="grid grid-cols-4 bg-slate-50/80 px-10 py-6 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-          <span>Customer Identity</span>
-          <span>Contact Information</span>
+      <div className="bg-white rounded-2xl shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+        <div className="grid grid-cols-4 bg-slate-50/80 px-10 py-6 border-b border-slate-100 text-xs font-semibold text-slate-500">
+          <span>Customer</span>
+          <span>Contact</span>
           <span>Status</span>
-          <span className="text-right">Management</span>
+          <span className="text-right">Actions</span>
         </div>
 
         <div
@@ -232,7 +195,7 @@ const CustomerList: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100 group-hover:scale-110 transition-transform">
+                    <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-semibold text-xl shadow-lg shadow-indigo-100 group-hover:scale-110 transition-transform">
                       {customer.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col text-left">
@@ -246,7 +209,7 @@ const CustomerList: React.FC = () => {
                       >
                         {customer.name}
                       </Link>
-                      <span className="text-[10px] font-mono text-slate-400">
+                      <span className="text-xs font-mono text-slate-500">
                         ID: {customer.id.slice(-6)}
                       </span>
                     </div>
@@ -270,12 +233,12 @@ const CustomerList: React.FC = () => {
                   {/*  Kilitliyse ekranda Kırmızı Kilit gösteriyoruz! */}
                   <div>
                     {locked ? (
-                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-black uppercase tracking-tighter">
+                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">
                         <Lock size={12} />
-                        Editing...
+                        Editing…
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-tighter">
+                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-semibold">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                         Verified
                       </span>
@@ -289,7 +252,7 @@ const CustomerList: React.FC = () => {
                     <button
                       onClick={() => !locked && handleEdit(customer)}
                       disabled={locked}
-                      className={`p-3.5 shadow-sm border rounded-2xl transition-all ${
+                      className={`p-3.5 shadow-sm border rounded-lg transition-all ${
                         locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200"
@@ -301,7 +264,7 @@ const CustomerList: React.FC = () => {
                     <button
                       onClick={() => !locked && handleDelete(customer.id)}
                       disabled={locked}
-                      className={`p-3.5 shadow-sm border rounded-2xl transition-all ${
+                      className={`p-3.5 shadow-sm border rounded-lg transition-all ${
                         locked
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-200"
@@ -314,18 +277,7 @@ const CustomerList: React.FC = () => {
               );
             })
           ) : (
-            <div className="py-32 text-center flex flex-col items-center gap-4">
-              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-2">
-                <Search size={48} />
-              </div>
-              <p className="text-slate-400 font-black text-xl">
-                No customers found.
-              </p>
-              <p className="text-slate-300 text-sm max-w-xs">
-                Try adjusting your filters or add your first patient to the
-                clinic registry.
-              </p>
-            </div>
+            <EmptyState plural="customers" singular="customer" />
           )}
         </div>
       </div>

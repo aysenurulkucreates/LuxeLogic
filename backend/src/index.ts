@@ -3,7 +3,6 @@ import http from "http";
 import express from "express";
 import cors from "cors";
 
-// 🚨 Apollo'yu artık modern ESM ile çağırıyoruz! (v4 sabitlemesi sayesinde express4 %100 çalışır)
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 
@@ -18,7 +17,7 @@ import { userTypeDef } from "./graphql/users/user.typeDef.js";
 import { commonTypeDef } from "./graphql/typedefs/common.typeDef.js";
 
 import { appointmentResolvers } from "./graphql/appointments/appointment.resolvers.js";
-import { createContext } from "./context/context.js";
+import { getUserFromToken, createContext } from "./context/context.js";
 import { customerResolvers } from "./graphql/customers/customer.resolvers.js";
 import { productResolvers } from "./graphql/products/product.resolvers.js";
 import { dashboardResolvers } from "./graphql/dashboard/dashboard.resolvers.js";
@@ -71,61 +70,74 @@ await server.start();
 app.use(
   "/graphql",
   cors(),
-  express.json(), // 🚨 body-parser'a gerek yok, Express'in kendi neşterini kullanıyoruz
+  express.json(),
   expressMiddleware(server, {
-    // 🚨 YENİ: createContext'e sadece req değil, yukarıda kurduğumuz io telsizini de yolluyoruz!
     context: async ({ req }) => await createContext({ req, io }),
   }) as any,
 );
 
-// 🚨 SUNUCUNUN HAFIZASI
-// Hangi telsiz (socket.id), hangi hastanede (tenantId), hangi dosyayı (recordId) kilitledi?
-const lockedRecords = new Map();
+// Socket bağlantısı kabul edilmeden önce kimlik kontrolü,
+// GraphQl ile aynı kuralı kullanır: token'i doğrula, ullanıcıyı veritabanından yükle.
+io.use(async (socket, next) => {
+  try {
+    const user = await getUserFromToken(socket.handshake.auth?.token);
+    if (!user) return next(new Error("UNAUTHENTICATED"));
+
+    socket.data.user = user;
+    next();
+  } catch (error) {
+    next(error as Error);
+  }
+});
+
+// Hnagi bağlantı socket.id hangi klinikte tenantId, hangi kaydı recordId kilitli
+const lockedRecords = new Map<string, { tenantId: string; recordId: string }>();
 
 io.on("connection", (socket) => {
-  console.log("🚀 Client connected to Socket.io! ID:", socket.id);
+  // Klinik ve e-posta istemciden değil, doğrulanmış kullanıcıdan gelir.
+  const { id: userId, tenantId, email } = socket.data.user;
+  console.log("Socket connected:", socket.id, "user:", userId);
 
-  socket.on("join_tenant_room", (tenantId) => {
-    socket.join(tenantId);
-    console.log(`🏥 The radio joined room number ${socket.id}, [${tenantId}]!`);
-  });
+  // odayı sunucu seçeri tenantId si olmayan kullanıcı hiçbir odaya giremez.
+  if (tenantId) socket.join(tenantId);
 
-  // 🔒 1. DÜZENLEME BAŞLADI (KİLİTLE)
-  socket.on("lock_record", ({ tenantId, recordId, userEmail }) => {
-    // Hafızaya yaz: "Bu adam, bu dosyayı ameliyata aldı!"
+  // düzenleme başladı, kaydı kilitle
+  socket.on("lock_record", (payload) => {
+    const recordId = payload?.recordId;
+    if (!tenantId || !recordId) return;
+
     lockedRecords.set(socket.id, { tenantId, recordId });
     socket.broadcast
       .to(tenantId)
-      .emit("record_locked", { recordId, lockedBy: userEmail });
+      .emit("record_locked", { recordId, lockedBy: email });
   });
 
-  // 🔓 2. DÜZENLEME BİTTİ (KİLİDİ AÇ)
-  socket.on("unlock_record", ({ tenantId, recordId }) => {
-    // İş bitti, dosyayı hafızadan sil
+  // düzenleme bitti, klidi aç
+  socket.on("unlock_record", (payload) => {
+    const recordId = payload?.recordId;
+    if (!tenantId || !recordId) return;
+
     lockedRecords.delete(socket.id);
     socket.broadcast.to(tenantId).emit("record_unlocked", { recordId });
   });
 
-  // 🚨 3. İNTERNET KOPTUĞUNDA ÇALIŞAN "HAYAT KURTARAN" KOD (Disconnect)
-  socket.on("disconnect", () => {
-    console.log(" Client disconnected.", socket.id);
+  // bağlantı koptu, elinde kilitli kayot varsa otomatik aç
+  socket.on("disconnected", () => {
+    console.log("Socket disconnected", socket.id);
 
-    // Eğer interneti kopan adamın elinde kilitli bir dosya varsa:
-    if (lockedRecords.has(socket.id)) {
-      const { tenantId, recordId } = lockedRecords.get(socket.id);
-
-      // Herkese otomatik anons geç: "Adamın neti gitti, kilidi kırın!"
-      socket.broadcast.to(tenantId).emit("record_unlocked", { recordId });
-
-      // Temizlik yap
+    const lock = lockedRecords.get(socket.id);
+    if (lock) {
+      socket.broadcast
+        .to(lock.tenantId)
+        .emit("record_unlocked", { recordId: lock.recordId });
       lockedRecords.delete(socket.id);
-      console.log(`🔌 Internet dropped! Auto-unlocked record: ${recordId}`);
+      console.log("Auto-unlocked record after disconnected:", lock.recordId);
     }
   });
 });
 
 const PORT = 4000;
 httpServer.listen(PORT, () => {
-  console.log(`✅ LuxeLogic Server ready!`);
-  console.log(`🚀 GraphQL: http://localhost:${PORT}/graphql`);
+  console.log(`LuxeLogic Server ready!`);
+  console.log(`GraphQL: http://localhost:${PORT}/graphql`);
 });

@@ -2,6 +2,7 @@ import React, { type ReactNode } from "react";
 import { ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoadingState from "../ui/LoadingState";
+import Button from "../ui/Button";
 
 // --- INTERFACES (Cerrahi Tipler) ---
 interface DetailLayoutProps {
@@ -38,24 +39,25 @@ const DetailLayout: React.FC<DetailLayoutProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10 animate-in fade-in duration-500 text-left">
+    <div className="max-w-7xl mx-auto p-8 space-y-10 animate-in fade-in duration-500 text-left">
       {/* --- FIXED HEADER FRAME (Üst Ameliyathane) --- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div className="flex items-center gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-6 min-w-0">
           {/* Back Button (Transfer Ambulansı 🚑) */}
           <button
             onClick={() => (backUrl ? navigate(backUrl) : navigate(-1))}
-            className="p-4 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 hover:text-indigo-600 transition-all active:scale-95"
+            aria-label="Go back"
+            className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-indigo-600 transition-colors"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={20} />
           </button>
 
-          <div className="space-y-1 text-left">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-left">
-              File Detail Report
+          <div className="space-y-1 text-left min-w-0">
+            <p className="text-xs font-medium text-slate-500 text-left">
+              Details
             </p>
             <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight text-left truncate">
+              <h1 className="text-2xl font-semibold text-slate-900 truncate">
                 {title} {/* 💎 BURAYA VERİ GELECEK */}
               </h1>
               {statusBadge} {/* 💎 BURAYA VERİ GELECEK */}
@@ -66,19 +68,17 @@ const DetailLayout: React.FC<DetailLayoutProps> = ({
         {/* Action Buttons (Cerrahi Müdahale Seti 💉) */}
         <div className="flex gap-3">
           {onEdit && (
-            <button
-              onClick={onEdit}
-              className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-600 transition-colors shadow-lg shadow-slate-200"
-            >
-              <Edit size={16} /> Edit Case
-            </button>
+            <Button icon={Edit} onClick={onEdit}>
+              Edit
+            </Button>
           )}
           {onDelete && (
             <button
               onClick={onDelete}
-              className="px-4 py-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-colors border border-rose-100"
+              aria-label="Delete"
+              className="px-3 py-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors border border-rose-100"
             >
-              <Trash2 size={20} />
+              <Trash2 size={18} />
             </button>
           )}
         </div>
@@ -101,7 +101,7 @@ const DetailLayout: React.FC<DetailLayoutProps> = ({
           )}
 
           {/* --- SLOT C: MAIN CONTENT (Ana Organ) --- */}
-          <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100">
+          <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
             {mainContentSlot} {/* 💎 BURAYA VERİ GELECEK */}
           </div>
         </div>

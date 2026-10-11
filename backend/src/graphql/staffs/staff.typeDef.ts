@@ -5,7 +5,7 @@ export const staffTypeDef = `#graphql
   }
 
   type Mutation {
-    createStaff(input: CreateStaffInput!): Staff!
+    createStaff(input: CreateStaffInput!): CreateStaffResponse!
     deleteStaff(id: ID!): DeleteResponse
     updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
   }
@@ -35,6 +35,11 @@ export const staffTypeDef = `#graphql
 
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type CreateStaffResponse {
+  staff: Staff!
+  tempPassword: String!
 }
 
 input CreateStaffInput {

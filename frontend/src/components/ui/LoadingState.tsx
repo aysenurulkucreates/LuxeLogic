@@ -6,7 +6,7 @@ interface LoadingStateProps {
 }
 
 const LAYOUT_CLASSES: Record<"page" | "modal" | "inline", string> = {
-  page: "flex flex-col items-center justify-center min-h-[60vh] max-w-7xl mx-auto px-6 py-16 gap-4",
+  page: "flex flex-col items-center justify-center min-h-[60vh] max-w-7xl mx-auto p-8 gap-4",
   modal: "flex flex-col items-center justify-center h-full min-h-96 px-6 py-10 gap-4",
   inline: "flex flex-col items-center justify-center w-full py-12 gap-4",
 };

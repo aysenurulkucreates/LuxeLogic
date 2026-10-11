@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation } from "@apollo/client";
 import toast from "react-hot-toast";
+import { Save, UserPlus } from "lucide-react";
+import Button from "../ui/Button";
 import { GET_MY_STAFF } from "../../graphql/queries/auth";
 import { CREATE_STAFF, UPDATE_STAFF } from "../../graphql/mutations/staff";
 
@@ -66,9 +68,16 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
   const [createStaff, { loading: createLoading }] = useMutation(CREATE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
-    onCompleted: () => {
+    onCompleted: (data) => {
+      const tempPassword = data?.createStaff?.tempPassword;
       onClose();
-      setFormData(initialFormState); // 🧼 Tertemiz resetleme
+      setFormData(initialFormState);
+      if (tempPassword) {
+        toast.success(
+          `Staff added. temporaray password: ${tempPassword} - share it with them; they'll change it on first login.`,
+          { duration: 15000 },
+        );
+      }
     },
     onError: (err) => toast.error(`Could not add staff: ${err.message}`),
   });
@@ -133,17 +142,17 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
         <form onSubmit={handleSubmit} className="p-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">
-            {initialData ? "🩺 Edit Professional" : "➕ Add New Professional"}
+          <h2 className="text-lg font-bold text-slate-900 mb-6">
+            {initialData ? "Edit staff member" : "Add staff member"}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 📝 Name Input */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-slate-500 uppercase ml-1">
+              <label className="text-xs font-bold text-slate-500 ml-1">
                 Full Name
               </label>
               <input
@@ -151,13 +160,13 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
 
             {/* 📧 Email Input */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-slate-500 uppercase ml-1">
+              <label className="text-xs font-bold text-slate-500 ml-1">
                 Email
               </label>
               <input
@@ -166,39 +175,39 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
 
             {/* 📞 Phone Input */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-slate-500 uppercase ml-1">
+              <label className="text-xs font-bold text-slate-500 ml-1">
                 Phone
               </label>
               <input
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
 
             {/* 🎓 Expertise Input */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-slate-500 uppercase ml-1">
+              <label className="text-xs font-bold text-slate-500 ml-1">
                 Expertise
               </label>
               <input
                 name="expertise"
                 value={formData.expertise}
                 onChange={handleChange}
-                className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
 
             {/* 🎭 ROLE SELECT (FULL ENTERPRISE EDITION) */}
             <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="text-xs font-bold text-slate-500 uppercase ml-1">
+              <label className="text-xs font-bold text-slate-500 ml-1">
                 System Role (Access Level)
               </label>
               <select
@@ -206,7 +215,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                 value={formData.role}
                 onChange={handleChange}
                 disabled={!!initialData?.id} // Düzenlerken rol değiştirilemez!
-                className="p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-slate-700"
+                className="p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-slate-700"
               >
                 <option value="TENANT_ADMIN">
                   Clinic Manager (Full Admin Access)
@@ -230,17 +239,17 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
             >
               Cancel
             </button>
-            <button
+            <Button
               type="submit"
-              disabled={createLoading || updateLoading}
-              className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+              icon={initialData ? Save : UserPlus}
+              isLoading={createLoading || updateLoading}
             >
               {createLoading || updateLoading
-                ? "Processing..."
+                ? "Saving…"
                 : initialData
-                  ? "Update Team Member"
-                  : "Save Professional"}
-            </button>
+                  ? "Save changes"
+                  : "Add staff member"}
+            </Button>
           </div>
         </form>
       </div>

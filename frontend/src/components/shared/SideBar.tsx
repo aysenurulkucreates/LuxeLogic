@@ -35,8 +35,8 @@ const Sidebar: React.FC = () => {
     logout: () => void;
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/signin");
   };
 
@@ -46,39 +46,34 @@ const Sidebar: React.FC = () => {
       path: "/overview",
       icon: LayoutDashboard,
       // Sekreter finansal özetleri görmesin, doktor ve admin görsün
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"],
+      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
     {
       name: "Appointments",
       path: "/appointments",
       icon: CalendarClock,
-      // Herkes randevuları görmeli (Kısıtlama yok, o yüzden allowedRoles yazmıyoruz)
     },
     {
       name: "Customers",
       path: "/customers",
       icon: Users,
-      // Hastaları/Müşterileri herkes görebilir
     },
     {
       name: "Products",
       path: "/products",
       icon: Package,
-      // Sadece yöneticiler ve belki doktorlar stokları görebilir
       allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"],
     },
     {
       name: "Staff",
       path: "/staff",
       icon: Contact,
-      //  Personel maaşları/ayarlarını SADECE yöneticiler görebilir!
       allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
     {
       name: "Sales",
       path: "/sales",
       icon: HandCoins,
-      // 🚨 FİNANS: Kasayı sadece yöneticiler görebilir!
       allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
     },
   ];
@@ -100,7 +95,7 @@ const Sidebar: React.FC = () => {
 
   // Ortak tasarım sınıflarımız
   const commonStyles =
-    "flex items-center gap-3 px-4 py-3 rounded-xl transition w-full font-medium";
+    "flex items-center gap-3 px-4 py-3 rounded-lg transition w-full font-medium";
 
   // Tekrarlanan render mantığını bir fonksiyonla sadeleştirelim
   const renderItem = (item: MenuItem) => {
@@ -120,7 +115,7 @@ const Sidebar: React.FC = () => {
         className={({ isActive }) =>
           `${commonStyles} ${
             isActive
-              ? "bg-indigo-50 text-indigo-600 shadow-sm"
+              ? "bg-indigo-600 text-white"
               : "text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
           }`
         }
