@@ -1,4 +1,5 @@
 import { myContext } from "../../context/context.js";
+import { forbidden } from "../../lib/errors.js";
 
 export const saleResolvers = {
   Query: {
@@ -79,54 +80,53 @@ export const saleResolvers = {
       if (!targetTenantId)
         throw new Error("Target tenant ID is required for this operation.");
 
-      // 🏥 TRANSACTION OPERASYONU
-      try {
-        return await prisma.$transaction(async (tx: any) => {
-          // A. Ürünü bul ve stok kontrolü yap
-          const product = await tx.product.findUnique({
-            where: { id: productId },
-          });
-
-          if (!product) throw new Error("Product not found in inventory!");
-
-          if (product.stock < quantity) {
-            throw new Error(
-              `Insufficient stock! Only ${product.stock} left in storage.`,
-            );
-          }
-
-          // B. Satışı oluştur
-          const newSale = await tx.sale.create({
-            data: {
-              quantity,
-              totalPrice,
-              customerId,
-              productId,
-              tenantId: targetTenantId,
-            },
-            include: { product: true, customer: true, tenant: true },
-          });
-
-          // C. STOKTAN OTOMATİK DÜŞ
-          await tx.product.update({
-            where: { id: productId },
-            data: {
-              stock: {
-                decrement: quantity, // Stoğu miktar kadar tıkır tıkır düşürür ✅
-              },
-            },
-          });
-
-          io.to(targetTenantId).emit("sale_created", newSale);
-
-          return newSale;
+      return await prisma.$transaction(async (tx: any) => {
+        // A- ürünü sadece bu klinikte ara
+        const product = await tx.product.findFirst({
+          where: { id: productId, tenantId: targetTenantId },
         });
-      } catch (error: any) {
-        throw new Error(
-          error.message ||
-            "An unexpected error occurred during the sale operation.",
-        );
-      }
+
+        if (!product) throw forbidden("product not found or access denied.");
+
+        if (product.stock < quantity)
+          throw new Error(
+            `Insufficient stock! Only ${product.stock} left in storage`,
+          );
+
+        // müşteri gönderildiyse, bu klinikte ve silinmemiş olmalı.
+        if (customerId) {
+          const customer = await tx.customer.findFirst({
+            where: {
+              id: customerId,
+              tenantId: targetTenantId,
+              deletedAt: null,
+            },
+          });
+
+          if (!customer) throw forbidden("Customer not found or access denied");
+        }
+        // satışı oluştur.
+        const newSale = await tx.sale.create({
+          data: {
+            quantity,
+            totalPrice,
+            customerId,
+            productId,
+            tenantId: targetTenantId,
+          },
+          include: { product: true, customer: true, tenant: true },
+        });
+
+        // stoktan düş- ürün A adımında bu kliniğe ait olarak doğrulandı.
+        await tx.product.update({
+          where: { id: productId },
+          data: { stock: { decrement: quantity } },
+        });
+
+        io.to(targetTenantId).emit("sale_created", newSale);
+
+        return newSale;
+      });
     },
     deleteSale: async (
       _: any,
