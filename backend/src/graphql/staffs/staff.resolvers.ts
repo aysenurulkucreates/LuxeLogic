@@ -62,7 +62,6 @@ export const staffResolvers = {
     ) => {
       if (!user) throw unauthenticated();
 
-      // çağıran yetkili mi? sadece TENANT_ADMIN ve SUPER_ADMIN staff ekleyebilir.
       if (user.role !== "TENANT_ADMIN" && user.role !== "SUPER_ADMIN")
         throw forbidden();
 
@@ -84,56 +83,52 @@ export const staffResolvers = {
       const targetTenantId =
         user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
 
-      if (!targetTenantId) {
-        throw badInput("");
-      }
+      if (!targetTenantId) throw badInput("Trghet tenant ID is required!");
+
+      // bu e-posta ile sisteme girş yapmış biri var mı
+      const existingUser = await prisma.user.findFirst({ where: { email } });
+      if (existingUser)
+        throw badInput("This email is already registered to another user.");
+
+      const tempPassword = crypto.randomBytes(9).toString("base64url");
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
       try {
-        // bu e-posta ile sisteme girş yapmış biri var mı
-        const existingUser = await prisma.user.findFirst({ where: { email } });
-        if (existingUser)
-          throw new Error("This email is already registered to another user.");
-
-        const tempPassword = crypto.randomBytes(9).toString("base64url");
-        const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-        // sisteme girş yapması için user oluşturuyoruz.
-        await prisma.user.create({
-          data: {
-            email,
-            password: hashedPassword,
-            role: role,
-            tenantId: targetTenantId,
-            profileImage: imageUrl || "",
-          },
+        const newStaff = await prisma.$transaction(async (tx: any) => {
+          const newUser = await tx.user.create({
+            data: {
+              email,
+              password: hashedPassword,
+              role,
+              tenantId: targetTenantId,
+              profileImage: imageUrl || "",
+            },
+          });
+          return tx.staff.create({
+            data: {
+              name,
+              email,
+              phone,
+              expertise,
+              workDays,
+              isActive,
+              imageUrl,
+              bio,
+              role,
+              tenantId: targetTenantId,
+              userId: newUser.id,
+            },
+          });
         });
-
-        const newStaff = await prisma.staff.create({
-          data: {
-            name,
-            email,
-            phone,
-            expertise,
-            workDays,
-            isActive,
-            imageUrl,
-            bio,
-            role,
-            tenantId: targetTenantId,
-          },
-        });
-
         io.to(targetTenantId).emit("staff_created", newStaff);
-
         return { staff: newStaff, tempPassword };
       } catch (err: any) {
-        if (err.code === "P2002") {
-          throw new Error(
-            "This email is already registered to another staff member.",
-          );
-        }
+        // iki ynetici aynı anda aynı e-postayı eklerse ikisi de ön kontrolü geçebilir.
+        if (err.code === "p2002")
+          throw badInput("This email is already registered to another user.");
+
         console.error("Error creating staff:", err);
-        throw new Error("An unexpected error occurred while creating staff.");
+        throw new Error("An unexpected error occured while creating staff");
       }
     },
     deleteStaff: async (
