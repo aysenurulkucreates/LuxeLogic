@@ -47,7 +47,7 @@ export const appointmentResolvers = {
           AND: [
             user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
             // Bir personel, arkadaşının randevusunu göremez!
-            user.role === "DOCTOR" ? { staffId: user.id } : {},
+            user.role === "DOCTOR" ? { staff: { userId: user.id } } : {},
             searchFilter,
           ],
         },
@@ -72,6 +72,7 @@ export const appointmentResolvers = {
         where: {
           id: id,
           ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
+          ...(user.role === "DOCTOR" ? { staff: { userId: user.id } } : {}),
         },
         include: { customer: true, staff: true },
       });
