@@ -28,10 +28,14 @@ export const getUserFromToken = async (token?: string | null) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
 
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: { tenant: true },
+      include: { tenant: true, staff: true },
     });
+
+    if (user?.staff && !user.staff.isActive) return null;
+
+    return user;
   } catch (error) {
     return null;
   }

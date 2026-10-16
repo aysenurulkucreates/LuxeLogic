@@ -1,6 +1,7 @@
 import { myContext } from "../../context/context.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { forbidden } from "../../lib/errors.js";
 
 export const userResolvers = {
   Query: {
@@ -109,6 +110,7 @@ export const userResolvers = {
         where: {
           email: credentials.email,
         },
+        include: { staff: true },
       });
       if (!foundUser) {
         throw new Error("Incorrect email or password!");
@@ -119,8 +121,13 @@ export const userResolvers = {
         foundUser.password,
       );
       if (!isValid) {
-        throw new Error("Uncorrect email or password!");
+        throw new Error("Incorrect email or password!");
       }
+
+      if (foundUser.staff && !foundUser.staff.isActive)
+        throw forbidden(
+          "Your account has been deactivated. Please contact your clinic administrator.",
+        );
 
       const token = jwt.sign(
         {
