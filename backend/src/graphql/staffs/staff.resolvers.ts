@@ -167,9 +167,8 @@ export const staffResolvers = {
       { id, input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) {
+      if (!user)
         throw new Error("You must be logged in to perform this action.");
-      }
 
       const where = {
         id: id,
@@ -199,25 +198,35 @@ export const staffResolvers = {
       if (Object.keys(updateData).length === 0)
         throw new Error("No data sent to be updated.");
 
+      const staff = await prisma.staff.findFirst({ where });
+      if (!staff) throw forbidden("Staff not found or access denied.");
+
+      const emailChanged = email !== undefined && email !== staff.email;
+
       try {
-        const staff = await prisma.staff.findFirst({ where });
+        const updatedStaff = await prisma.$transaction(async (tx: any) => {
+          if (emailChanged && staff.userId) {
+            await tx.user.update({
+              where: { id: staff.userId },
+              data: { email },
+            });
+          }
 
-        if (!staff) throw new Error("Staff not found or access denied");
-
-        const updatedStaff = await prisma.staff.update({
-          where: { id: id },
-          data: updateData,
+          return tx.staff.update({
+            where: { id },
+            data: updateData,
+          });
         });
 
         io.to(updatedStaff.tenantId).emit("staff_updated", updatedStaff);
 
         return updatedStaff;
       } catch (error: any) {
-        if (error.code === "P2002") {
-          throw new Error(
-            "This email is already in use by another staff member.",
-          );
-        }
+        if (error.code === "P2002")
+          throw badInput("This email is already registered to another user.");
+
+        console.error("Error updating staff:", error);
+        throw new Error("An unexpected occured while updating staff");
       }
     },
   },
