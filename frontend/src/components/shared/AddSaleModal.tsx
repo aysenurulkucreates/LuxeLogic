@@ -4,7 +4,7 @@ import { CREATE_SALE } from "../../graphql/mutations/sales";
 import {
   GET_MY_SALES,
   GET_MY_CUSTOMERS,
-  GET_MY_PRODUCTS, // 🚨 Sızıntı Fix: Tekil isim (Backend uyumu)
+  GET_MY_PRODUCTS,
 } from "../../graphql/queries/auth";
 import { Banknote, X, ShoppingBag, Package, User, Hash } from "lucide-react";
 import LoadingState from "../ui/LoadingState";
@@ -21,25 +21,10 @@ interface Customer {
   id: string;
   name: string;
 }
-interface Tenant {
-  id: string;
-  name: string;
-}
-
-interface Sale {
-  id: string;
-  quantity: number;
-  totalPrice: number;
-  createdAt: string;
-  product: Product;
-  customer: Customer;
-  tenant: Tenant;
-}
 
 interface AddSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialData?: Sale | null;
 }
 
 interface SaleFormData {
@@ -49,11 +34,7 @@ interface SaleFormData {
   productId: string;
 }
 
-const AddSaleModal: React.FC<AddSaleModalProps> = ({
-  isOpen,
-  onClose,
-  initialData,
-}) => {
+const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
@@ -62,7 +43,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 🏥 TRIAGE: Loading durumlarını aşağıda kullanacağız (Warning fix!)
   const { data: productData, loading: prodLoading } = useQuery(
     GET_MY_PRODUCTS,
     {
@@ -80,10 +60,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
   );
 
   const [formData, setFormData] = useState<SaleFormData>({
-    quantity: initialData?.quantity || 1,
-    totalPrice: initialData?.totalPrice || 0,
-    customerId: initialData?.customer?.id || "",
-    productId: initialData?.product?.id || "",
+    quantity: 1,
+    totalPrice: 0,
+    customerId: "",
+    productId: "",
   });
 
   const [createSale, { loading: createLoading }] = useMutation(CREATE_SALE, {
@@ -109,8 +89,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customerId || !formData.productId)
-      {
+    if (!formData.customerId || !formData.productId) {
       toast.error("Please select a customer and a product.");
       return;
     }
@@ -138,9 +117,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
               <ShoppingBag size={28} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">
-                {initialData ? "Edit sale" : "New sale"}
-              </h2>
+              <h2 className="text-lg font-semibold">New Sale</h2>
             </div>
           </div>
           <button

@@ -1,9 +1,7 @@
 import { useMutation, useQuery } from "@apollo/client";
-import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { GET_SALE } from "../../../graphql/queries/auth";
 import { DELETE_SALE } from "../../../graphql/mutations/sales";
-import AddSaleModal from "../../../components/shared/AddSaleModal";
 import DetailLayout from "../../../components/shared/DetailLayout";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
@@ -24,7 +22,6 @@ import toast from "react-hot-toast";
 const SaleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data, loading, error, refetch } = useQuery(GET_SALE, {
     variables: { id },
@@ -62,13 +59,8 @@ const SaleDetailPage = () => {
         // 💎 HEADER: Transaction Identity
         title={sale.product?.name || "Sale Detail"}
         backUrl="/sales"
-        onEdit={() => setIsModalOpen(true)}
         onDelete={() => {
-          if (
-            window.confirm(
-              "Are you sure you want to delete this sale?",
-            )
-          )
+          if (window.confirm("Are you sure you want to delete this sale?"))
             deleteSale({ variables: { id } });
         }}
         // 👤 LEFT SIDE: Transaction Summary & Audit
@@ -123,9 +115,7 @@ const SaleDetailPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
               <div>
-                <p className="text-xs font-semibold text-slate-500">
-                  Total
-                </p>
+                <p className="text-xs font-semibold text-slate-500">Total</p>
                 <p className="text-3xl font-semibold text-indigo-600 mt-1">
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
@@ -187,9 +177,7 @@ const SaleDetailPage = () => {
               {sale.customer ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-500">
-                      Name
-                    </p>
+                    <p className="text-xs font-semibold text-slate-500">Name</p>
                     <p className="font-bold text-slate-800 text-xl">
                       {sale.customer.name}
                     </p>
@@ -235,21 +223,12 @@ const SaleDetailPage = () => {
                   <p className="text-xs font-semibold text-indigo-300 mb-1">
                     Sale ID
                   </p>
-                  <p className="text-slate-500 font-mono text-sm">
-                    #{sale.id}
-                  </p>
+                  <p className="text-slate-500 font-mono text-sm">#{sale.id}</p>
                 </div>
               </div>
             </div>
           </div>
         }
-      />
-
-      <AddSaleModal
-        key={sale.id}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialData={sale}
       />
     </div>
   );
