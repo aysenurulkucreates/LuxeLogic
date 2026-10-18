@@ -62,6 +62,14 @@ interface AppointmentFormData {
   tenantId: string;
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+// yerel saat için
+const toLocalInputValue = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
   isOpen,
   onClose,
@@ -79,27 +87,29 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     loading: staffLoading,
     error: staffError,
     data: staffData,
+    previousData: previousStaffData,
     refetch: refetchStaff,
   } = useQuery(GET_MY_STAFF, {
     variables: { searchTerm: debouncedSearchTerm },
+    fetchPolicy: "cache-and-network",
   });
 
   const {
     loading: customerLoading,
     error: customerError,
     data: customerData,
+    previousData: previousCustomerData,
     refetch: refetchCustomers,
   } = useQuery(GET_MY_CUSTOMERS, {
     variables: { searchTerm: debouncedSearchTerm },
+    fetchPolicy: "cache-and-network",
   });
 
   const [formData, setFormData] = useState<AppointmentFormData>({
     startTime: initialData?.startTime
-      ? new Date(initialData.startTime).toISOString().slice(0, 16)
+      ? toLocalInputValue(initialData.startTime)
       : "",
-    endTime: initialData?.endTime
-      ? new Date(initialData.endTime).toISOString().slice(0, 16)
-      : "",
+    endTime: initialData?.endTime ? toLocalInputValue(initialData.endTime) : "",
     status: initialData?.status || "PENDING",
     notes: initialData?.notes || "",
     price: initialData?.price || "",
@@ -140,10 +150,17 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     },
   );
 
+  const staffList: Staff[] = (staffData ?? previousStaffData)?.myStaff ?? [];
+  const customerList: Customer[] =
+    (customerData ?? previousCustomerData)?.myCustomers ?? [];
+  const isSearching = staffLoading || customerLoading;
+
   if (!isOpen) return null;
 
-  // --- 🚑 TRIAGE STATES ---
-  if ((staffLoading && !staffData) || (customerLoading && !customerData))
+  if (
+    (staffLoading && !staffData) ||
+    (customerLoading && !customerData && !previousStaffData)
+  )
     return <LoadingState layout="modal" />;
 
   if (staffError || customerError)
@@ -229,6 +246,11 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {isSearching && (
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                Searching...
+              </span>
+            )}
           </div>
         </div>
 
@@ -278,9 +300,9 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                 required
               >
                 <option value="">Select staff...</option>
-                {staffData?.myStaff
-                  ?.filter((staff: Staff) => staff.role === "DOCTOR")
-                  .map((staff: Staff) => (
+                {staffList
+                  .filter((staff) => staff.role === "DOCTOR")
+                  .map((staff) => (
                     <option key={staff.id} value={staff.id}>
                       {staff.name}
                     </option>
@@ -300,7 +322,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                 required
               >
                 <option value="">Select customer...</option>
-                {customerData?.myCustomers?.map((cust: Customer) => (
+                {customerList.map((cust) => (
                   <option key={cust.id} value={cust.id}>
                     {cust.name}
                   </option>
