@@ -2,12 +2,19 @@ import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 import { Server } from "socket.io";
 
+export type Role =
+  | "SUPER_ADMIN"
+  | "TENANT_ADMIN"
+  | "DOCTOR"
+  | "NURSE"
+  | "STAFF";
+
 export interface myContext {
   user?: {
     id: string;
     email: string;
     tenantId: string;
-    role: string;
+    role: Role;
   };
   prisma: any;
   io: any;

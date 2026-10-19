@@ -1,5 +1,6 @@
+import { requireAuth, requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
-import { unauthenticated, forbidden, badInput } from "../../lib/errors.js";
+import { forbidden, badInput } from "../../lib/errors.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -13,7 +14,7 @@ export const staffResolvers = {
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireAuth(user);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -29,7 +30,7 @@ export const staffResolvers = {
 
       return await prisma.staff.findMany({
         where: {
-          ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
+          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
           isActive: true,
           ...searchFilter,
         },
@@ -40,12 +41,12 @@ export const staffResolvers = {
       { id }: { id: string },
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireAuth(user);
 
       const staff = await prisma.staff.findFirst({
         where: {
           id: id,
-          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
           isActive: true,
         },
       });
@@ -60,10 +61,7 @@ export const staffResolvers = {
       { input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw unauthenticated();
-
-      if (user.role !== "TENANT_ADMIN" && user.role !== "SUPER_ADMIN")
-        throw forbidden();
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const {
         name,
@@ -77,13 +75,13 @@ export const staffResolvers = {
         role,
       } = input;
 
-      if (user.role === "TENANT_ADMIN" && !ASSIGNABLE_ROLES.includes(role))
+      if (me.role === "TENANT_ADMIN" && !ASSIGNABLE_ROLES.includes(role))
         throw forbidden("You can not assign this role");
 
       const targetTenantId =
-        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+        me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
-      if (!targetTenantId) throw badInput("Trghet tenant ID is required!");
+      if (!targetTenantId) throw badInput("Target tenant ID is required!");
 
       // bu e-posta ile sisteme girş yapmış biri var mı
       const existingUser = await prisma.user.findFirst({ where: { email } });
@@ -124,11 +122,11 @@ export const staffResolvers = {
         return { staff: newStaff, tempPassword };
       } catch (err: any) {
         // iki ynetici aynı anda aynı e-postayı eklerse ikisi de ön kontrolü geçebilir.
-        if (err.code === "p2002")
+        if (err.code === "P2002")
           throw badInput("This email is already registered to another user.");
 
         console.error("Error creating staff:", err);
-        throw new Error("An unexpected error occured while creating staff");
+        throw new Error("An unexpected error occurred while creating staff");
       }
     },
     deleteStaff: async (
@@ -136,13 +134,13 @@ export const staffResolvers = {
       { id }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw unauthenticated();
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       // önce sahiplik, personeli kendi kliniğinde ara.
       const staff = await prisma.staff.findFirst({
         where: {
           id,
-          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
@@ -167,12 +165,11 @@ export const staffResolvers = {
       { id, input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user)
-        throw new Error("You must be logged in to perform this action.");
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const where = {
         id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+        ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
       };
 
       const {
@@ -196,7 +193,7 @@ export const staffResolvers = {
       if (bio !== undefined) updateData.bio = bio;
 
       if (Object.keys(updateData).length === 0)
-        throw new Error("No data sent to be updated.");
+        throw badInput("No data sent to be updated.");
 
       const staff = await prisma.staff.findFirst({ where });
       if (!staff) throw forbidden("Staff not found or access denied.");
@@ -226,7 +223,7 @@ export const staffResolvers = {
           throw badInput("This email is already registered to another user.");
 
         console.error("Error updating staff:", error);
-        throw new Error("An unexpected occured while updating staff");
+        throw new Error("An unexpected error occurred while updating staff");
       }
     },
   },
