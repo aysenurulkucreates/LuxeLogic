@@ -1,5 +1,6 @@
 import { myContext } from "../../context/context.js";
-import { forbidden, unauthenticated } from "../../lib/errors.js";
+import { requireRole } from "../../lib/auth.js";
+import { badInput, forbidden } from "../../lib/errors.js";
 
 export const customerResolvers = {
   Query: {
@@ -9,7 +10,12 @@ export const customerResolvers = {
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) throw unauthenticated();
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = searchTerm
@@ -23,39 +29,30 @@ export const customerResolvers = {
           }
         : {};
 
-      if (user.role === "SUPER_ADMIN") {
-        return await prisma.customer.findMany({
-          where: {
-            tenantId: user.tenantId,
-            ...searchFilter,
-          },
-        });
-      }
-
-      const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF", "NURSE"];
-
-      if (allowedRoles.includes(user.role)) {
-        return await prisma.customer.findMany({
-          where: {
-            tenantId: user.tenantId,
-            deletedAt: null,
-            ...searchFilter,
-          },
-        });
-      }
-      throw new Error("You do not have permission to view this list..");
+      return await prisma.customer.findMany({
+        where: {
+          tenantId: me.tenantId,
+          deletedAt: null,
+          ...searchFilter,
+        },
+      });
     },
     getCustomer: async (
       _: any,
       { id }: { id: string },
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "SUPER_ADMIN",
+        "DOCTOR",
+        "STAFF",
+      ]);
 
       const customer = await prisma.customer.findFirst({
         where: {
           id: id,
-          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
           deletedAt: null,
         },
       });
@@ -70,13 +67,17 @@ export const customerResolvers = {
       { input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user)
-        throw new Error("You must be logged in to perform this action.");
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const targetTenantId =
-        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+        me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
-      if (!targetTenantId) throw new Error("Target tenant ID is required!");
+      if (!targetTenantId) throw badInput("Target tenant ID is required!");
 
       const { name, email, phone } = input;
 
@@ -95,7 +96,7 @@ export const customerResolvers = {
         return newCustomer;
       } catch (err: any) {
         if (err.code === "P2002") {
-          throw new Error("This email address is already in use.");
+          throw badInput("This email address is already in use.");
         }
         console.error("Error creating customer:", err);
         throw new Error("Failed to create customer.");
@@ -106,12 +107,12 @@ export const customerResolvers = {
       { id }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw unauthenticated();
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const customer = await prisma.customer.findFirst({
         where: {
           id,
-          ..._(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
           deletedAt: null,
         },
       });
@@ -123,7 +124,7 @@ export const customerResolvers = {
         data: { deletedAt: new Date() },
       });
 
-      io.to(customer.tenantId).emir("customer_deleted", id);
+      io.to(customer.tenantId).emit("customer_deleted", id);
 
       return {
         deletedId: id,
@@ -136,11 +137,17 @@ export const customerResolvers = {
       { id, input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw new Error("You must be logged in.");
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const where = {
         id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+        ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
+        deletedAt: null,
       };
 
       const { name, email, phone } = input;
@@ -150,15 +157,15 @@ export const customerResolvers = {
       if (phone !== undefined) updateData.phone = phone;
 
       if (Object.keys(updateData).length === 0)
-        throw new Error("No data sent to be updated.");
+        throw badInput("No data sent to be updated.");
+
+      const customer = await prisma.customer.findFirst({ where });
+
+      if (!customer) {
+        throw forbidden("Customer not found or access denied.");
+      }
 
       try {
-        const customer = await prisma.customer.findFirst({ where });
-
-        if (!customer) {
-          throw new Error("Customer not found or access denied.");
-        }
-
         const updatedCustomer = await prisma.customer.update({
           where: { id: id },
           data: updateData,
@@ -172,7 +179,7 @@ export const customerResolvers = {
         return updatedCustomer;
       } catch (error: any) {
         if (error.code === "P2002") {
-          throw new Error("This email is already in use by another customer.");
+          throw badInput("This email is already in use by another customer.");
         }
         console.error("Update error:", error);
         throw new Error("An error occurred during the update.");
