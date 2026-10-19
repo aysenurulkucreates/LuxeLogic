@@ -1,5 +1,6 @@
+import { requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
-import { forbidden, unauthenticated } from "../../lib/errors.js";
+import { badInput, forbidden } from "../../lib/errors.js";
 
 export const appointmentResolvers = {
   Query: {
@@ -9,7 +10,12 @@ export const appointmentResolvers = {
       { input = {} }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) throw unauthenticated();
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const cleanSearch = input.searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -45,9 +51,9 @@ export const appointmentResolvers = {
       return await prisma.appointment.findMany({
         where: {
           AND: [
-            user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId },
+            me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId },
             // Bir personel, arkadaşının randevusunu göremez!
-            user.role === "DOCTOR" ? { staff: { userId: user.id } } : {},
+            me.role === "DOCTOR" ? { staff: { userId: me.id } } : {},
             searchFilter,
           ],
         },
@@ -66,13 +72,18 @@ export const appointmentResolvers = {
       { id }: { id: string },
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "SUPER_ADMIN",
+        "STAFF",
+        "DOCTOR",
+      ]);
 
       const appointment = await prisma.appointment.findFirst({
         where: {
           id: id,
-          ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
-          ...(user.role === "DOCTOR" ? { staff: { userId: user.id } } : {}),
+          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
+          ...(me.role === "DOCTOR" ? { staff: { userId: me.id } } : {}),
         },
         include: { customer: true, staff: true },
       });
@@ -85,25 +96,41 @@ export const appointmentResolvers = {
     createAppointment: async (
       _: any,
       { input }: any,
-      { prisma, user, io }: myContext,
+      { prisma, io, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "STAFF",
+        "SUPER_ADMIN",
+        "DOCTOR",
+      ]);
 
-      const { startTime, endTime, status, price, customerId, staffId } = input;
+      const { startTime, endTime, status, price, customerId } = input;
+      let staffId = input.staffId;
+
+      if (me.role === "DOCTOR") {
+        const myStaff = await prisma.staff.findFirst({
+          where: { userId: me.id, tenantId: me.tenantId, isActive: true },
+        });
+        if (!myStaff)
+          throw forbidden("No staff record is linked to this account.");
+
+        staffId = myStaff.id;
+      }
 
       const rawTenantId =
-        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+        me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
       const targetTenantId =
         typeof rawTenantId === "object" ? rawTenantId.id : rawTenantId;
 
       if (!targetTenantId) {
-        throw new Error("Target tenant ID is required for this operation.");
+        throw badInput("Target tenant ID is required.");
       }
 
       const existingAppointment = await prisma.appointment.findFirst({
         where: {
           tenantId: targetTenantId,
-          staffId: input.staffId,
+          staffId,
           AND: [
             { startTime: { lt: new Date(endTime) } }, // lt: les than $startTime < input.endTime$
             { endTime: { gt: new Date(startTime) } }, // gt: greater than $endTime > input.startTime$
@@ -112,20 +139,20 @@ export const appointmentResolvers = {
       });
 
       if (existingAppointment)
-        throw new Error(
-          "The staff already have an appointment at these times.",
+        throw badInput(
+          "The staff member already has an appointment at this time.",
         );
 
       const newApp = await prisma.appointment.create({
         data: {
           startTime: new Date(startTime),
           endTime: new Date(endTime),
-          price: input.price,
+          price: price,
           status: status || "PENDING",
           notes: input.notes,
           tenant: { connect: { id: targetTenantId } },
-          customer: { connect: { id: input.customerId } },
-          staff: { connect: { id: input.staffId } },
+          customer: { connect: { id: customerId } },
+          staff: { connect: { id: staffId } },
         },
         include: {
           staff: true,
@@ -143,11 +170,11 @@ export const appointmentResolvers = {
       { id }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const where = {
         id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+        ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
       };
 
       try {
@@ -181,20 +208,37 @@ export const appointmentResolvers = {
       { id, input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const targetTenantId =
-        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+        me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
       const currentApp = await prisma.appointment.findFirst({
-        where: { id, tenantId: targetTenantId },
+        where: {
+          id,
+          tenantId: targetTenantId,
+          ...(me.role === "DOCTOR" ? { staff: { userId: me.id } } : {}),
+        },
       });
 
       if (!currentApp)
-        throw new Error("Appointment not found or access denied.");
+        throw forbidden("Appointment not found or access denied.");
 
       const { startTime, endTime, status, staffId, customerId, notes, price } =
         input;
+
+      if (
+        me.role === "DOCTOR" &&
+        staffId !== undefined &&
+        staffId !== currentApp.staffId
+      )
+        throw forbidden("Doctors can only manage their own appointments");
+
       const updateData: any = {};
 
       if (startTime !== undefined) updateData.startTime = new Date(startTime);
@@ -206,7 +250,7 @@ export const appointmentResolvers = {
       if (customerId !== undefined) updateData.customerId = customerId;
 
       // çakışma kontrolü
-      if (startTime || endTime || staffId) {
+      if (startTime || endTime || staffId || customerId) {
         const checkStart = updateData.startTime || currentApp.startTime;
         const checkEnd = updateData.endTime || currentApp.endTime;
         const checkStaff = updateData.staffId || currentApp.staffId;
@@ -224,32 +268,41 @@ export const appointmentResolvers = {
           },
         });
 
-        if (conflict) throw new Error("It clashes with another appointment.");
-
-        const updatedApp = await prisma.appointment.update({
-          where: { id: id },
-          data: updateData,
-          include: {
-            staff: true,
-            customer: true,
-            tenant: true,
-          },
-        });
-
-        io.to(updatedApp.tenantId).emit("appointment_updated", updatedApp);
-
-        return updatedApp;
+        if (conflict)
+          throw badInput("This time clashes with another appointment.");
       }
+      const updatedApp = await prisma.appointment.update({
+        where: { id: id },
+        data: updateData,
+        include: {
+          staff: true,
+          customer: true,
+          tenant: true,
+        },
+      });
+
+      io.to(updatedApp.tenantId).emit("appointment_updated", updatedApp);
+
+      return updatedApp;
     },
     updateAppointmentStatus: async (
       _: any,
       { id, status }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw unauthenticated();
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const appointment = await prisma.appointment.findFirst({
-        where: { id, tenantId: user.tenantId },
+        where: {
+          id,
+          tenantId: me.tenantId,
+          ...(me.role === "DOCTOR" ? { staff: { userId: me.id } } : {}),
+        },
       });
 
       if (!appointment)
