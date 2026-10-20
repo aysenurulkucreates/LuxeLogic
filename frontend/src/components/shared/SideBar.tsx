@@ -11,6 +11,7 @@ import {
   HandCoins,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { PAGE_ROLES, getHomePath } from "../../config/permissions";
 
 interface User {
   id: string;
@@ -24,7 +25,7 @@ interface MenuItem {
   path?: string;
   onClick?: () => void;
   isAction?: boolean;
-  allowedRoles?: string[]; //  Bu menüyü kimler görebilir? (Eğer boşsa herkes görür)
+  allowedRoles?: readonly string[]; //  Bu menüyü kimler görebilir? (Eğer boşsa herkes görür)
 }
 
 const Sidebar: React.FC = () => {
@@ -45,36 +46,37 @@ const Sidebar: React.FC = () => {
       name: "Overview",
       path: "/overview",
       icon: LayoutDashboard,
-      // Sekreter finansal özetleri görmesin, doktor ve admin görsün
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
+      allowedRoles: PAGE_ROLES.overview,
     },
     {
       name: "Appointments",
       path: "/appointments",
       icon: CalendarClock,
+      allowedRoles: PAGE_ROLES.appointments,
     },
     {
       name: "Customers",
       path: "/customers",
       icon: Users,
+      allowedRoles: PAGE_ROLES.customers,
     },
     {
       name: "Products",
       path: "/products",
       icon: Package,
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"],
+      allowedRoles: PAGE_ROLES.products,
     },
     {
       name: "Staff",
       path: "/staff",
       icon: Contact,
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
+      allowedRoles: PAGE_ROLES.staff,
     },
     {
       name: "Sales",
       path: "/sales",
       icon: HandCoins,
-      allowedRoles: ["SUPER_ADMIN", "TENANT_ADMIN"],
+      allowedRoles: PAGE_ROLES.sales,
     },
   ];
 
@@ -143,11 +145,7 @@ const Sidebar: React.FC = () => {
       {/* Logo Alanı */}
       <div className="p-8">
         <Link
-          to={
-            user?.role === "STAFF" || user?.role === "NURSE"
-              ? "/appointments"
-              : "/overview"
-          }
+          to={getHomePath(user?.role)}
           className="block w-fit hover:opacity-80 transition-opacity cursor-pointer active:scale-95"
         >
           <h2 className="text-2xl font-black bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">

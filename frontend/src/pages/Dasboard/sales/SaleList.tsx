@@ -42,7 +42,6 @@ const SaleList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   const client = useApolloClient();
 
@@ -130,10 +129,7 @@ const SaleList = () => {
     }
   };
 
-  const handleClose = () => {
-    setIsModalOpen(false);
-    setSelectedSale(null);
-  };
+  const handleClose = () => setIsModalOpen(false);
 
   if (error) return <ErrorState error={error} onRetry={refetch} />;
 
@@ -238,12 +234,7 @@ const SaleList = () => {
         )}
       </div>
 
-      <AddSaleModal
-        key={selectedSale?.id || "new-sale"}
-        isOpen={isModalOpen}
-        onClose={handleClose}
-        initialData={selectedSale}
-      />
+      <AddSaleModal isOpen={isModalOpen} onClose={handleClose} />
     </div>
   );
 };

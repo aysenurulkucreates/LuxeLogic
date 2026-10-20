@@ -3,6 +3,7 @@ import { SIGNIN_MUTATION } from "../../graphql/mutations/auth";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { getHomePath } from "../../config/permissions";
 import { LogIn } from "lucide-react";
 import Button from "../../components/ui/Button";
 
@@ -15,7 +16,7 @@ const Signin = () => {
   const [signinUser, { loading, error }] = useMutation(SIGNIN_MUTATION, {
     onCompleted: (data) => {
       login(data.signin.token);
-      navigate("/overview");
+      navigate(getHomePath(data.signin.user.role));
     },
   });
 

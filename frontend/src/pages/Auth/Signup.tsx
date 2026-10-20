@@ -3,6 +3,7 @@ import { useMutation } from "@apollo/client";
 import { SIGNUP_MUTATION } from "../../graphql/mutations/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { getHomePath } from "../../config/permissions";
 import { UserPlus, Building2, Link2, Mail, Lock } from "lucide-react";
 import Button from "../../components/ui/Button";
 
@@ -17,9 +18,9 @@ const Signup: React.FC = () => {
 
   const [signupUser, { loading }] = useMutation(SIGNUP_MUTATION, {
     onCompleted: (data) => {
-      const { token } = data.signup;
+      const { token, user } = data.signup;
       login(token);
-      navigate("/overview");
+      navigate(getHomePath(user.role));
     },
     onError: (error) => {
       setError(error.message);

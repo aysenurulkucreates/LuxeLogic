@@ -23,6 +23,7 @@ import AppointmentDetailPage from "./pages/Dasboard/appointments/[id]";
 import ProductDetailPage from "./pages/Dasboard/products/[id]";
 import StaffDetailPage from "./pages/Dasboard/staff/[id]";
 import SaleDetailPage from "./pages/Dasboard/sales/[id]";
+import { PAGE_ROLES } from "./config/permissions";
 
 function App() {
   return (
@@ -44,31 +45,54 @@ function App() {
         >
           {/* Buradaki sayfalar DashboardLayout'un içindeki <Outlet /> kısmına yerleşir */}
 
-          {/* herkese açık sayfalar */}
-          <Route path="/customers" element={<CustomerList />} />
-          <Route path="/customers/:id" element={<CustomerDetailPage />} />
-          <Route path="/appointments" element={<AppointmentList />} />
-          <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
+          {/* giriş yapan herkese açık */}
           <Route path="/profile" element={<ProfilePage />} />
 
-          {/* herkese açık olmayan, rol gerektiren özel sayfalar */}
+          {/* rol gerektiren sayfalar (roller config/permissions.ts içinde) */}
           <Route
             path="/overview"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
+              <RoleGuard allowedRoles={PAGE_ROLES.overview}>
                 <Overview />
               </RoleGuard>
             }
           />
-
+          <Route
+            path="/appointments"
+            element={
+              <RoleGuard allowedRoles={PAGE_ROLES.appointments}>
+                <AppointmentList />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/appointments/:id"
+            element={
+              <RoleGuard allowedRoles={PAGE_ROLES.appointments}>
+                <AppointmentDetailPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/customers"
+            element={
+              <RoleGuard allowedRoles={PAGE_ROLES.customers}>
+                <CustomerList />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/customers/:id"
+            element={
+              <RoleGuard allowedRoles={PAGE_ROLES.customers}>
+                <CustomerDetailPage />
+              </RoleGuard>
+            }
+          />
           <Route
             path="/products"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
+              <RoleGuard allowedRoles={PAGE_ROLES.products}>
                 <ProductList />
               </RoleGuard>
             }
@@ -76,9 +100,7 @@ function App() {
           <Route
             path="/products/:id"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
+              <RoleGuard allowedRoles={PAGE_ROLES.products}>
                 <ProductDetailPage />
               </RoleGuard>
             }
@@ -86,41 +108,32 @@ function App() {
           <Route
             path="/staff"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
-                <StaffList />{" "}
+              <RoleGuard allowedRoles={PAGE_ROLES.staff}>
+                <StaffList />
               </RoleGuard>
             }
           />
           <Route
             path="/staff/:id"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
-                <StaffDetailPage />{" "}
+              <RoleGuard allowedRoles={PAGE_ROLES.staff}>
+                <StaffDetailPage />
               </RoleGuard>
             }
           />
-
           <Route
             path="/sales"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
-                <SaleList />{" "}
+              <RoleGuard allowedRoles={PAGE_ROLES.sales}>
+                <SaleList />
               </RoleGuard>
             }
           />
           <Route
             path="/sales/:id"
             element={
-              <RoleGuard
-                allowedRoles={["SUPER_ADMIN", "TENANT_ADMIN", "DOCTOR"]}
-              >
-                <SaleDetailPage />{" "}
+              <RoleGuard allowedRoles={PAGE_ROLES.sales}>
+                <SaleDetailPage />
               </RoleGuard>
             }
           />
