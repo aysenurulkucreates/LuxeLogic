@@ -1,17 +1,20 @@
 import { myContext } from "../../context/context.js";
-import { GraphQLError } from "graphql";
+import { requireRole } from "../../lib/auth.js";
+import { badInput, forbidden } from "../../lib/errors.js";
 
 export const productResolvers = {
   Query: {
-    // products
     myProducts: async (
       _: any,
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user || !user.tenantId) {
-        throw new Error("Authentication required: No tenant context found.");
-      }
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -28,34 +31,26 @@ export const productResolvers = {
           }
         : {};
 
-      if (user.role === "SUPER_ADMIN") {
-        return await prisma.product.findMany({
-          where: searchFilter,
-        });
-      }
-
-      const allowedRoles = ["TENANT_ADMIN", "DOCTOR", "STAFF"];
-      if (allowedRoles.includes(user.role)) {
-        return await prisma.product.findMany({
-          where: {
-            tenantId: user.tenantId,
-            ...searchFilter,
-          },
-        });
-      }
-      throw new Error("You do not have permission to view this list..");
+      return await prisma.product.findMany({
+        where: { tenantId: me.tenantId, ...searchFilter },
+      });
     },
     getProduct: async (
       _: any,
       { id }: { id: string },
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const product = await prisma.product.findFirst({
         where: {
           id: id,
-          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
@@ -63,19 +58,17 @@ export const productResolvers = {
     },
   },
   Mutation: {
-    // products
     createProduct: async (
       _: any,
       { input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user)
-        throw new Error("You must be logged in to perform this action.");
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const targetTenantId =
-        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+        me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
-      if (!targetTenantId) throw new Error("Target tenant ID is required!");
+      if (!targetTenantId) throw badInput("Target tenant ID is required!");
 
       const { name, price, category, stock } = input;
 
@@ -103,73 +96,34 @@ export const productResolvers = {
       { id }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw new Error("Authentication required.");
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      try {
-        // 🩺 1. ADIM: Önce silinecek ürünü buluyoruz!
-        // (Çünkü Super Admin siliyorsa hangi şirkete ait olduğunu ancak böyle öğrenebiliriz)
-        const productToDelete = await prisma.product.findUnique({
-          where: { id: id },
-        });
+      const product = await prisma.product.findFirst({
+        where: {
+          id,
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
+        },
+      });
 
-        // Ürün yoksa zaten işlemi iptal et
-        if (!productToDelete) {
-          throw new Error("Product not found!");
-        }
+      if (!product) throw forbidden("Product not found or access denied.");
 
-        // 🛡️ 2. ADIM: Güvenlik Duvarı
-        // (Eğer Super Admin değilse ve kendi şirketi değilse silemesin)
-        if (
-          user.role !== "SUPER_ADMIN" &&
-          productToDelete.tenantId !== user.tenantId
-        ) {
-          throw new Error("You do not have permission to delete this product.");
-        }
+      const usageCount = await prisma.sale.count({ where: { productId: id } });
 
-        // 🩺 3. ADIM: Bağımlılık Kontrolü (Satışlarda kullanılmış mı?)
-        const usageCount = await prisma.sale.count({
-          where: { productId: id },
-        });
+      if (usageCount > 0)
+        throw badInput("This product has sales and cannot be deleted.");
 
-        if (usageCount > 0) {
-          throw new Error(
-            "Cannot delete product: It is linked to existing sales records. Try deactivating it instead. ⚠️",
-          );
-        }
+      await prisma.product.delete({ where: { id: product.id } });
 
-        // 🗑️ 4. ADIM: Güvenli Silme (Artık gönül rahatlığıyla silebiliriz)
-        // Burada deleteMany yerine direkt delete kullanıyoruz çünkü id benzersiz
-        await prisma.product.delete({
-          where: { id: id },
-        });
+      io.to(product.tenantId).emit("product_deleted", id);
 
-        // 🚨 5. ADIM: Telsiz Anonsu!
-        // Ürünü silmeden önce 1. Adımda bilgilerini çekmiştik, o yüzden 'tenantId' altın gibi elimizde!
-        io.to(productToDelete.tenantId).emit("product_deleted", id);
-
-        return {
-          deletedId: id,
-          success: true,
-          message: "Product removed from the system successfully. 💎",
-        };
-      } catch (err: any) {
-        console.error("Delete Error:", err);
-        throw new Error(err.message || "Failed to execute delete operation.");
-      }
+      return { deletedId: id, success: true, message: "Product deleted" };
     },
     updateProduct: async (
       _: any,
       { id, input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) {
-        throw new Error("You must be logged in to perform this action.");
-      }
-
-      const where = {
-        id: id,
-        ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
-      };
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const { name, category, price, stock } = input;
       const updateData: any = {};
@@ -180,15 +134,20 @@ export const productResolvers = {
       if (stock !== undefined) updateData.stock = stock;
 
       if (Object.keys(updateData).length === 0)
-        throw new GraphQLError("No data has been sent to be updated..");
+        throw badInput("No data sent to be updated.");
+
+      const product = await prisma.product.findFirst({
+        where: {
+          id,
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
+        },
+      });
+
+      if (!product) throw forbidden("Product not found or access denied.");
 
       try {
-        const product = await prisma.product.findFirst({ where });
-        if (!product) {
-          throw new Error("Product not found or access denied.");
-        }
         const updatedProduct = await prisma.product.update({
-          where: { id: id },
+          where: { id: product.id },
           data: updateData,
         });
 
