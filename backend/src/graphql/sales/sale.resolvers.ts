@@ -1,5 +1,6 @@
 import { myContext } from "../../context/context.js";
-import { forbidden } from "../../lib/errors.js";
+import { requireRole } from "../../lib/auth.js";
+import { badInput, forbidden } from "../../lib/errors.js";
 
 export const saleResolvers = {
   Query: {
@@ -9,7 +10,12 @@ export const saleResolvers = {
       { searchTerm }: any,
       { prisma, user }: myContext,
     ) => {
-      if (!user) throw new Error("Not authenticated!");
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -31,7 +37,7 @@ export const saleResolvers = {
 
       return await prisma.sale.findMany({
         where: {
-          ...(user.role === "SUPER_ADMIN" ? {} : { tenantId: user.tenantId }),
+          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
           ...searchFilter,
         },
         include: {
@@ -47,12 +53,17 @@ export const saleResolvers = {
       { id }: { id: string },
       { prisma, user }: myContext,
     ) => {
-      if (!user) return null;
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const sale = await prisma.sale.findFirst({
         where: {
           id: id,
-          ...(user.role !== "SUPER_ADMIN" ? { tenantId: user.tenantId } : {}),
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
         include: {
           product: true,
@@ -70,17 +81,21 @@ export const saleResolvers = {
       { input }: any,
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw new Error("Authentication required.");
+      const me = requireRole(user, [
+        "TENANT_ADMIN",
+        "DOCTOR",
+        "STAFF",
+        "SUPER_ADMIN",
+      ]);
 
       const { quantity, totalPrice, customerId, productId } = input;
 
       const targetTenantId =
-        user.role === "SUPER_ADMIN" ? input.tenantId : user.tenantId;
+        me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
-      if (!targetTenantId)
-        throw new Error("Target tenant ID is required for this operation.");
+      if (!targetTenantId) throw badInput("Target tenant ID is required.");
 
-      return await prisma.$transaction(async (tx: any) => {
+      const newSale = await prisma.$transaction(async (tx: any) => {
         // A- ürünü sadece bu klinikte ara
         const product = await tx.product.findFirst({
           where: { id: productId, tenantId: targetTenantId },
@@ -89,7 +104,7 @@ export const saleResolvers = {
         if (!product) throw forbidden("product not found or access denied.");
 
         if (product.stock < quantity)
-          throw new Error(
+          throw badInput(
             `Insufficient stock! Only ${product.stock} left in storage`,
           );
 
@@ -106,7 +121,7 @@ export const saleResolvers = {
           if (!customer) throw forbidden("Customer not found or access denied");
         }
         // satışı oluştur.
-        const newSale = await tx.sale.create({
+        const sale = await tx.sale.create({
           data: {
             quantity,
             totalPrice,
@@ -122,70 +137,43 @@ export const saleResolvers = {
           where: { id: productId },
           data: { stock: { decrement: quantity } },
         });
-
-        io.to(targetTenantId).emit("sale_created", newSale);
-
-        return newSale;
+        return sale;
       });
+      io.to(targetTenantId).emit("sale_created", newSale);
+
+      return newSale;
     },
     deleteSale: async (
       _: any,
       { id }: { id: string },
       { prisma, user, io }: myContext,
     ) => {
-      if (!user) throw new Error("Authentication required.");
+      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      // Silinecek satışı bulmamız lazım!
-      // Neden? Çünkü hangi üründen kaç tane satıldığını bilmeden stoğu iade edemeyiz.
-      const saleToDelete = await prisma.sale.findUnique({
-        where: { id },
-        include: { product: true }, // Ürün bilgisini de yanına alıyoruz
+      const sale = await prisma.sale.findFirst({
+        where: {
+          id,
+          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
+        },
       });
 
-      if (!saleToDelete) throw new Error("Sale record not found!");
+      if (!sale) throw forbidden("Sale not found or access denied.");
 
-      // 💎 Güvenlik: Başkasının satışını silemesin (Super Admin değilse)
-      if (
-        user.role !== "SUPER_ADMIN" &&
-        saleToDelete.tenantId !== user.tenantId
-      ) {
-        throw new Error("You are not authorized to cancel this sale!");
-      }
+      await prisma.$transaction(async (tx: any) => {
+        await tx.sale.delete({ where: { id: sale.id } });
 
-      try {
-        // 💉 TRANSACTION: Ya satış silinir ve stok artar, ya da hiçbir şey olmaz!
-        return await prisma.$transaction(async (tx: any) => {
-          // A. Satışı veritabanından siliyoruz
-          await tx.sale.delete({
-            where: { id },
-          });
-
-          // B. STOKLARI GERİ İADE ET
-          // Müşterinin aldığı miktarı (quantity) ürünün stoğuna geri ekliyoruz.
-          await tx.product.update({
-            where: { id: saleToDelete.productId },
-            data: {
-              stock: {
-                increment: saleToDelete.quantity, // Stoğu miktar kadar ARTIRIR ✅
-              },
-            },
-          });
-
-          io.to(saleToDelete.tenantId).emit("sale_deleted", saleToDelete);
-
-          // C. DeleteResponse Tipinde Cevap Dönüyoruz
-          return {
-            id: saleToDelete.id,
-            success: true,
-            message: `Sale cancelled successfully. ${saleToDelete.quantity} items returned to stock.`,
-          };
+        await tx.product.update({
+          where: { id: sale.productId },
+          data: { stock: { increment: sale.quantity } },
         });
-      } catch (error: any) {
-        throw new Error(
-          error.message ||
-            "An unexpected error occurred during sale cancellation.",
-        );
-      }
+      });
+      io.to(sale.tenantId).emit("sale_deleted", sale);
+
+      return {
+        id: sale.id,
+        success: true,
+        message: `Sale cancelled. ${sale.quantity} items returned to stock`,
+      };
     },
   },
 };
