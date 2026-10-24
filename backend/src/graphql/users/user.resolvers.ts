@@ -129,6 +129,9 @@ export const userResolvers = {
           "Your account has been deactivated. Please contact your clinic administrator.",
         );
 
+      if (foundUser.role === "NURSE")
+        throw forbidden("Nurses don't have access to the system.");
+
       const token = jwt.sign(
         {
           userId: foundUser.id,

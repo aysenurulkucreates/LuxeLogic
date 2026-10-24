@@ -34,7 +34,7 @@ interface StaffFormData {
   isActive: boolean;
   imageUrl: string;
   bio: string;
-  role: string; // 🚨 ŞEF CERRAH: Form verisine rol eklendi
+  role: string;
 }
 
 const AddStaffModal: React.FC<AddStaffModalProps> = ({
@@ -51,7 +51,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     isActive: true,
     imageUrl: "",
     bio: "",
-    role: "STAFF", // Varsayılan rol sekreter/personel
+    role: "STAFF",
   };
 
   const [formData, setFormData] = useState<StaffFormData>({
@@ -74,8 +74,12 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
       setFormData(initialFormState);
       if (tempPassword) {
         toast.success(
-          `Staff added. temporaray password: ${tempPassword} - share it with them; they'll change it on first login.`,
+          `Staff added. Temporary password: ${tempPassword} - share it with them; they'll change it on first login.`,
           { duration: 15000 },
+        );
+      } else {
+        toast.success(
+          "Staff added to the team list. Nurses don't get a login account.",
         );
       }
     },
@@ -90,7 +94,6 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Type assertion for select elements added
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -98,7 +101,6 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
   ) => {
     const { name, value, type } = e.target;
 
-    // Checkbox (isActive) için özel müdahale 💉
     const finalValue =
       type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
 
@@ -112,8 +114,6 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     e.preventDefault();
 
     if (initialData?.id) {
-      // 🚨 GÜNCELLEME: Rolü dışarıda bırakarak GÜVENLİ ve TERTEMİZ bir obje oluşturuyoruz.
-      // Ne 'any' kullandık, ne de 'kullanılmayan değişken' bıraktık. TypeScript buna bayılacak! 💅
       const updatePayload = {
         name: formData.name,
         email: formData.email,
@@ -132,7 +132,6 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
         },
       });
     } else {
-      // 🚨 YENİ KAYIT: Tüm veriyi (Rol dahil) Bcrypt blender'ına mermi gibi yolluyoruz!
       await createStaff({
         variables: {
           input: { ...formData },
@@ -214,20 +213,28 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                disabled={!!initialData?.id} // Düzenlerken rol değiştirilemez!
+                disabled={!!initialData?.id}
                 className="p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-slate-700"
               >
                 <option value="TENANT_ADMIN">
-                  Clinic Manager (Full Admin Access)
+                  Clinic Manager (Full Access)
                 </option>
                 <option value="DOCTOR">
-                  Doctor / Specialist (Full Clinical Access)
+                  Doctor (Own appointments, customers, sales)
+                </option>
+                <option value="STAFF">
+                  Secretary (Appointments, customers, sales)
                 </option>
                 <option value="NURSE">
-                  Nurse / Assistant (Partial Clinical Access)
+                  Nurse / Assistant (Team list only, no login.)
                 </option>
-                <option value="STAFF">Secretary (Appointments Only)</option>
               </select>
+              {formData.role === "NURSE" && !initialData?.id && (
+                <p className="text-xs text-slate-500 ml-1 mt-1">
+                  Nurses appear in the staff list but don't get a login account
+                  or password.
+                </p>
+              )}
             </div>
           </div>
 

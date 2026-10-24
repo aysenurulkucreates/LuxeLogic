@@ -42,6 +42,8 @@ export const getUserFromToken = async (token?: string | null) => {
 
     if (user?.staff && !user.staff.isActive) return null;
 
+    if (user?.role === "NURSE") return null;
+
     return user;
   } catch (error) {
     return null;

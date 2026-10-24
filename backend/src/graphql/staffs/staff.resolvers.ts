@@ -83,25 +83,38 @@ export const staffResolvers = {
 
       if (!targetTenantId) throw badInput("Target tenant ID is required!");
 
-      // bu e-posta ile sisteme girş yapmış biri var mı
-      const existingUser = await prisma.user.findFirst({ where: { email } });
-      if (existingUser)
-        throw badInput("This email is already registered to another user.");
+      const needsLogin = role !== "NURSE";
 
-      const tempPassword = crypto.randomBytes(9).toString("base64url");
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      if (needsLogin) {
+        // bu e-posta ile sisteme girş yapmış biri var mı
+        const existingUser = await prisma.user.findFirst({ where: { email } });
+        if (existingUser)
+          throw badInput("This email is already registered to another user.");
+      }
+
+      let tempPassword: string | null = null;
+      let hashedPassword: string | null = null;
+      if (needsLogin) {
+        tempPassword = crypto.randomBytes(9).toString("base64url");
+        hashedPassword = await bcrypt.hash(tempPassword, 10);
+      }
 
       try {
         const newStaff = await prisma.$transaction(async (tx: any) => {
-          const newUser = await tx.user.create({
-            data: {
-              email,
-              password: hashedPassword,
-              role,
-              tenantId: targetTenantId,
-              profileImage: imageUrl || "",
-            },
-          });
+          let userId: string | null = null;
+
+          if (needsLogin) {
+            const newUser = await tx.user.create({
+              data: {
+                email,
+                password: hashedPassword,
+                role,
+                tenantId: targetTenantId,
+                profileImage: imageUrl || "",
+              },
+            });
+            userId = newUser.id;
+          }
           return tx.staff.create({
             data: {
               name,
@@ -114,7 +127,7 @@ export const staffResolvers = {
               bio,
               role,
               tenantId: targetTenantId,
-              userId: newUser.id,
+              userId,
             },
           });
         });

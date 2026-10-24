@@ -39,7 +39,7 @@ export const staffTypeDef = `#graphql
 
 type CreateStaffResponse {
   staff: Staff!
-  tempPassword: String!
+  tempPassword: String
 }
 
 input CreateStaffInput {
