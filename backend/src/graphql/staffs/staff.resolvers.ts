@@ -118,7 +118,9 @@ export const staffResolvers = {
             },
           });
         });
-        io.to(targetTenantId).emit("staff_created", newStaff);
+
+        io.to(targetTenantId).emit("staff_created", { id: newStaff.id });
+
         return { staff: newStaff, tempPassword };
       } catch (err: any) {
         // iki ynetici aynı anda aynı e-postayı eklerse ikisi de ön kontrolü geçebilir.
@@ -215,7 +217,9 @@ export const staffResolvers = {
           });
         });
 
-        io.to(updatedStaff.tenantId).emit("staff_updated", updatedStaff);
+        io.to(updatedStaff.tenantId).emit("staff_updated", {
+          id: updatedStaff.id,
+        });
 
         return updatedStaff;
       } catch (error: any) {

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useApolloClient } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
 import { useEffect, useState } from "react";
 import {
   GET_MY_APPOINTMENTS,
@@ -70,8 +70,6 @@ const AppointmentList = () => {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  const client = useApolloClient();
-
   const socket = useSocket();
   // kilit hafızası
   const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
@@ -102,10 +100,7 @@ const AppointmentList = () => {
     DELETE_APPOINTMENT,
     {
       refetchQueries: [{ query: GET_MY_APPOINTMENTS }],
-      onCompleted: () =>
-        toast.success(
-          "Appointment deleted.",
-        ),
+      onCompleted: () => toast.success("Appointment deleted."),
       onError: (err) =>
         toast.error(`Could not delete appointment: ${err.message}`),
     },
@@ -118,86 +113,35 @@ const AppointmentList = () => {
         { query: GET_MY_APPOINTMENTS },
         { query: GET_DASHBOARD_STATS },
       ],
-      onCompleted: () =>
-        toast.success("Appointment status updated."),
-      onError: (err) =>
-        toast.error(
-          `Could not update status: ${err.message}`,
-        ),
+      onCompleted: () => toast.success("Appointment status updated."),
+      onError: (err) => toast.error(`Could not update status: ${err.message}`),
     },
   );
 
   useEffect(() => {
-    const handleCreated = (newAppointment: Appointment) => {
-      // 🚨 YENİ: console.log yerine ekrandan süzülen Toast bildirimi!
-      toast.success(
-        `New appointment: ${newAppointment.customer?.name}`,
-      );
-      client.cache.updateQuery(
-        {
-          query: GET_MY_APPOINTMENTS,
-          variables: { searchTerm: debouncedSearchTerm },
-        },
-        (existingData) => {
-          if (!existingData) return null;
-
-          return {
-            myAppointments: [...existingData.myAppointments, newAppointment],
-          };
-        },
-      );
-    };
-
-    const handleDeleted = (deletedId: string) => {
-      // 🚨 YENİ: Silinme için kırmızı hata bildirimi
-      toast.error(
-        "An appointment was deleted.",
-      );
-      client.cache.updateQuery(
-        {
-          query: GET_MY_APPOINTMENTS,
-          variables: { searchTerm: debouncedSearchTerm },
-        },
-        (existingData) => {
-          if (!existingData) return null;
-
-          return {
-            myAppointments: existingData.myAppointments.filter(
-              (appointment: Appointment) => appointment.id !== deletedId,
-            ),
-          };
-        },
-      );
-    };
-
-    const handleUpdated = (updatedAppointment: Appointment) => {
-      // 🚨 DÜZELTME: Artık paketi açıp hastanın adını (customer.name) kullanıyoruz!
-      toast.success(
-        `${updatedAppointment?.customer?.name || "A customer"}'s appointment was updated.`,
-      );
+    const handleAppointmentsChanged = () => {
       refetch();
     };
 
     const handleStaffDeleted = () => {
-      toast.success(
-        "A staff member was deleted. Appointments updated.",
-      );
+      toast.success("A staff member was deactivated. Appointments updated.");
       refetch();
     };
 
-    socket.on("appointment_created", handleCreated);
-    socket.on("appointment_deleted", handleDeleted);
-    socket.on("appointment_updated", handleUpdated);
+    socket.on("appointment_created", handleAppointmentsChanged);
+    socket.on("appointment_updated", handleAppointmentsChanged);
+    socket.on("appointment_status_updatedted", handleAppointmentsChanged);
+    socket.on("appointment_deleted", handleAppointmentsChanged);
     socket.on("staff_deleted", handleStaffDeleted);
 
-    // TEMİZLİK: Bileşen ekrandan kalkarsa kulaklığı çıkarıyoruz (Hafıza sızıntısını önler)
     return () => {
-      socket.off("appointment_created", handleCreated);
-      socket.off("appointment_deleted", handleDeleted);
-      socket.off("appointment_updated", handleUpdated);
+      socket.off("appointment_created", handleAppointmentsChanged);
+      socket.off("appointment_updated", handleAppointmentsChanged);
+      socket.off("appointment_status_updated", handleAppointmentsChanged);
+      socket.off("appointment_deleted", handleAppointmentsChanged);
       socket.off("staff_deleted", handleStaffDeleted);
     };
-  }, [socket, client, debouncedSearchTerm, refetch]);
+  }, [socket, refetch]);
 
   // --- HANDLERS ---
   const handleStatusUpdate = async (id: string, newStatus: string) => {
@@ -368,9 +312,7 @@ const AppointmentList = () => {
                   <div className="flex items-center gap-2">
                     <Banknote
                       size={16}
-                      className={
-                        locked ? "text-slate-400" : "text-emerald-600"
-                      }
+                      className={locked ? "text-slate-400" : "text-emerald-600"}
                     />
                     <span
                       className={`text-xs font-semibold ${locked ? "text-slate-400" : "text-emerald-600"}`}

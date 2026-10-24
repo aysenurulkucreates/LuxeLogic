@@ -161,7 +161,7 @@ export const appointmentResolvers = {
         },
       });
 
-      io.to(targetTenantId).emit("appointment_created", newApp);
+      io.to(targetTenantId).emit("appointment_created", { id: newApp.id });
 
       return newApp;
     },
@@ -281,7 +281,9 @@ export const appointmentResolvers = {
         },
       });
 
-      io.to(updatedApp.tenantId).emit("appointment_updated", updatedApp);
+      io.to(updatedApp.tenantId).emit("appointment_updated", {
+        id: updatedApp.id,
+      });
 
       return updatedApp;
     },
@@ -314,10 +316,9 @@ export const appointmentResolvers = {
         include: { customer: true, staff: true },
       });
 
-      io.to(updatedAppointment.tenantId).emit(
-        "appointment_status_updated",
-        updatedAppointment,
-      );
+      io.to(updatedAppointment.tenantId).emit("appointment_status_updated", {
+        id: updatedAppointment.id,
+      });
 
       return updatedAppointment;
     },
