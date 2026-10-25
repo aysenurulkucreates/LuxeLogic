@@ -1,7 +1,8 @@
 import { useMutation } from "@apollo/client";
 import { SIGNIN_MUTATION } from "../../graphql/mutations/auth";
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuth } from "../../hooks/useAuth";
 import { getHomePath } from "../../config/permissions";
 import { LogIn } from "lucide-react";
@@ -12,6 +13,17 @@ const Signin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [searchParams] = useSearchParams();
+  const expired = searchParams.get("expired") === "1";
+
+  useEffect(() => {
+    // Sabit id, StrictMode'da effect iki kez çalışınca toast'un çift açılmasını engeller.
+    if (expired) {
+      toast.error("Your session has expired. Please sign in again.", {
+        id: "session-expired",
+      });
+    }
+  }, [expired]);
 
   const [signinUser, { loading, error }] = useMutation(SIGNIN_MUTATION, {
     onCompleted: (data) => {

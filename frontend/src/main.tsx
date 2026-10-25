@@ -8,7 +8,16 @@ import {
   createHttpLink,
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context"; // Token eklemek için bu paket lazım
+import { onError } from "@apollo/client/link/error";
+import { from } from "@apollo/client";
 import { AuthProvider } from "./context/AuthContext";
+import { endSession, isTokenExpired } from "./lib/session";
+
+// Süresi dolmuş token ile açılışta hiç istek atılmasın.
+const storedToken = localStorage.getItem("token");
+if (storedToken && isTokenExpired(storedToken)) {
+  localStorage.removeItem("token");
+}
 
 // 1. Backend bağlantı adresimiz
 const httpLink = createHttpLink({
@@ -27,9 +36,16 @@ const authLink = setContext((_, { headers }) => {
   };
 });
 
-// 3. Client'ı hem bağlantı (httpLink) hem de token (authLink) ile birleştiriyoruz
+// 3. Backend UNAUTHENTICATED dönerse oturumu kapat ve giriş sayfasına gönder
+const errorLink = onError(({ graphQLErrors }) => {
+  if (graphQLErrors?.some((e) => e.extensions?.code === "UNAUTHENTICATED")) {
+    endSession();
+  }
+});
+
+// 4. Client'ı hata, token (authLink) ve bağlantı (httpLink) ile birleştiriyoruz
 const client = new ApolloClient({
-  link: authLink.concat(httpLink),
+  link: from([errorLink, authLink, httpLink]),
   cache: new InMemoryCache(),
 });
 

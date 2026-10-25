@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { io } from "socket.io-client";
+import { endSession } from "../lib/session";
 
 const SOCKET_URL = "http://localhost:4000";
 
@@ -13,6 +14,8 @@ const socket = io(SOCKET_URL, {
 
 socket.on("connect_error", (err) => {
   console.warn("Socket connection rejected:", err.message);
+  // Sunucu kapalı gibi kimlikle ilgisiz hatalarda oturum kapanmaz.
+  if (err.message === "UNAUTHENTICATED") endSession();
 });
 
 // Kaç component'in bağlantıyı kullandığını sayıyoruz; son kullanıcı
