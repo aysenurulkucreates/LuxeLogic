@@ -8,7 +8,7 @@ export const appointmentResolvers = {
     myAppointments: async (
       _: any,
       { input = {} }: any,
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -48,10 +48,9 @@ export const appointmentResolvers = {
           }
         : {};
 
-      return await prisma.appointment.findMany({
+      return await db.appointment.findMany({
         where: {
           AND: [
-            me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId },
             // Bir personel, arkadaşının randevusunu göremez!
             me.role === "DOCTOR" ? { staff: { userId: me.id } } : {},
             searchFilter,
@@ -70,7 +69,7 @@ export const appointmentResolvers = {
     getAppointment: async (
       _: any,
       { id }: { id: string },
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -79,10 +78,9 @@ export const appointmentResolvers = {
         "DOCTOR",
       ]);
 
-      const appointment = await prisma.appointment.findFirst({
+      const appointment = await db.appointment.findFirst({
         where: {
           id: id,
-          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
           ...(me.role === "DOCTOR" ? { staff: { userId: me.id } } : {}),
         },
         include: { customer: true, staff: true },
@@ -96,7 +94,7 @@ export const appointmentResolvers = {
     createAppointment: async (
       _: any,
       { input }: any,
-      { prisma, io, user }: myContext,
+      { db, io, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -109,8 +107,8 @@ export const appointmentResolvers = {
       let staffId = input.staffId;
 
       if (me.role === "DOCTOR") {
-        const myStaff = await prisma.staff.findFirst({
-          where: { userId: me.id, tenantId: me.tenantId, isActive: true },
+        const myStaff = await db.staff.findFirst({
+          where: { userId: me.id, isActive: true },
         });
         if (!myStaff)
           throw forbidden("No staff record is linked to this account.");
@@ -127,23 +125,27 @@ export const appointmentResolvers = {
         throw badInput("Target tenant ID is required.");
       }
 
-      const existingAppointment = await prisma.appointment.findFirst({
+      const existingAppointment = await db.appointment.findFirst({
         where: {
           tenantId: targetTenantId,
-          staffId,
+          status: { not: "CANCELLED" },
           AND: [
             { startTime: { lt: new Date(endTime) } }, // lt: les than $startTime < input.endTime$
             { endTime: { gt: new Date(startTime) } }, // gt: greater than $endTime > input.startTime$
           ],
+          OR: [{ staffId }, { customerId }],
         },
       });
 
-      if (existingAppointment)
-        throw badInput(
-          "The staff member already has an appointment at this time.",
-        );
+      if (existingAppointment) {
+        const who =
+          existingAppointment.staffId === staffId
+            ? "The staff member"
+            : "The customer";
+        throw badInput(`${who} already has an appointment at this time`);
+      }
 
-      const newApp = await prisma.appointment.create({
+      const newApp = await db.appointment.create({
         data: {
           startTime: new Date(startTime),
           endTime: new Date(endTime),
@@ -168,26 +170,28 @@ export const appointmentResolvers = {
     deleteAppointment: async (
       _: any,
       { id }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      const where = {
-        id: id,
-        ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
-      };
+      if (!id) throw badInput("Appointment id is required.");
 
       try {
-        const deleted = await prisma.appointment.deleteMany({ where });
+        const existing = await db.appointment.findFirst({
+          where: { id },
+          select: { id: true, tenantId: true },
+        });
 
-        if (deleted.count === 0)
+        if (!existing)
           return {
             success: false,
             message: "Appointment not found or access denied.",
             deletedId: null,
           };
 
-        io.to(deleted.tenantId).emit("appointment_deleted", id);
+        await db.appointment.delete({ where: { id } });
+
+        io.to(existing.tenantId).emit("appointment_deleted", { id });
 
         return {
           success: true,
@@ -206,7 +210,7 @@ export const appointmentResolvers = {
     updateAppointment: async (
       _: any,
       { id, input }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -218,7 +222,7 @@ export const appointmentResolvers = {
       const targetTenantId =
         me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
-      const currentApp = await prisma.appointment.findFirst({
+      const currentApp = await db.appointment.findFirst({
         where: {
           id,
           tenantId: targetTenantId,
@@ -256,10 +260,11 @@ export const appointmentResolvers = {
         const checkStaff = updateData.staffId || currentApp.staffId;
         const checkCustomer = updateData.customerId || currentApp.customerId;
 
-        const conflict = await prisma.appointment.findFirst({
+        const conflict = await db.appointment.findFirst({
           where: {
             tenantId: targetTenantId,
             id: { not: id },
+            status: { not: "CANCELLED" },
             AND: [
               { startTime: { lt: checkEnd } },
               { endTime: { gt: checkStart } },
@@ -271,7 +276,7 @@ export const appointmentResolvers = {
         if (conflict)
           throw badInput("This time clashes with another appointment.");
       }
-      const updatedApp = await prisma.appointment.update({
+      const updatedApp = await db.appointment.update({
         where: { id: id },
         data: updateData,
         include: {
@@ -290,7 +295,7 @@ export const appointmentResolvers = {
     updateAppointmentStatus: async (
       _: any,
       { id, status }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -299,10 +304,9 @@ export const appointmentResolvers = {
         "SUPER_ADMIN",
       ]);
 
-      const appointment = await prisma.appointment.findFirst({
+      const appointment = await db.appointment.findFirst({
         where: {
           id,
-          tenantId: me.tenantId,
           ...(me.role === "DOCTOR" ? { staff: { userId: me.id } } : {}),
         },
       });
@@ -310,7 +314,7 @@ export const appointmentResolvers = {
       if (!appointment)
         throw forbidden("Appointment not found or access denied.");
 
-      const updatedAppointment = await prisma.appointment.update({
+      const updatedAppointment = await db.appointment.update({
         where: { id },
         data: { status },
         include: { customer: true, staff: true },
