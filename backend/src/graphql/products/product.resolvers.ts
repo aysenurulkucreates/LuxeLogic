@@ -7,7 +7,7 @@ export const productResolvers = {
     myProducts: async (
       _: any,
       { searchTerm }: any,
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -31,14 +31,12 @@ export const productResolvers = {
           }
         : {};
 
-      return await prisma.product.findMany({
-        where: { tenantId: me.tenantId, ...searchFilter },
-      });
+      return await db.product.findMany({ where: searchFilter });
     },
     getProduct: async (
       _: any,
       { id }: { id: string },
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -47,10 +45,9 @@ export const productResolvers = {
         "SUPER_ADMIN",
       ]);
 
-      const product = await prisma.product.findFirst({
+      const product = await db.product.findFirst({
         where: {
           id: id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
@@ -61,7 +58,7 @@ export const productResolvers = {
     createProduct: async (
       _: any,
       { input }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
@@ -73,7 +70,7 @@ export const productResolvers = {
       const { name, price, category, stock } = input;
 
       try {
-        const newProduct = await prisma.product.create({
+        const newProduct = await db.product.create({
           data: {
             name,
             price,
@@ -91,28 +88,23 @@ export const productResolvers = {
         throw new Error("Failed to create product.");
       }
     },
-    deleteProduct: async (
-      _: any,
-      { id }: any,
-      { prisma, user, io }: myContext,
-    ) => {
+    deleteProduct: async (_: any, { id }: any, { db, user, io }: myContext) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      const product = await prisma.product.findFirst({
+      const product = await db.product.findFirst({
         where: {
           id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
       if (!product) throw forbidden("Product not found or access denied.");
 
-      const usageCount = await prisma.sale.count({ where: { productId: id } });
+      const usageCount = await db.sale.count({ where: { productId: id } });
 
       if (usageCount > 0)
         throw badInput("This product has sales and cannot be deleted.");
 
-      await prisma.product.delete({ where: { id: product.id } });
+      await db.product.delete({ where: { id: product.id } });
 
       io.to(product.tenantId).emit("product_deleted", id);
 
@@ -121,7 +113,7 @@ export const productResolvers = {
     updateProduct: async (
       _: any,
       { id, input }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
@@ -136,17 +128,16 @@ export const productResolvers = {
       if (Object.keys(updateData).length === 0)
         throw badInput("No data sent to be updated.");
 
-      const product = await prisma.product.findFirst({
+      const product = await db.product.findFirst({
         where: {
           id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
       if (!product) throw forbidden("Product not found or access denied.");
 
       try {
-        const updatedProduct = await prisma.product.update({
+        const updatedProduct = await db.product.update({
           where: { id: product.id },
           data: updateData,
         });

@@ -8,7 +8,7 @@ export const customerResolvers = {
     myCustomers: async (
       _: any,
       { searchTerm }: any,
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -29,18 +29,14 @@ export const customerResolvers = {
           }
         : {};
 
-      return await prisma.customer.findMany({
-        where: {
-          tenantId: me.tenantId,
-          deletedAt: null,
-          ...searchFilter,
-        },
+      return await db.customer.findMany({
+        where: { deletedAt: null, ...searchFilter },
       });
     },
     getCustomer: async (
       _: any,
       { id }: { id: string },
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -49,10 +45,9 @@ export const customerResolvers = {
         "STAFF",
       ]);
 
-      const customer = await prisma.customer.findFirst({
+      const customer = await db.customer.findFirst({
         where: {
           id: id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
           deletedAt: null,
         },
       });
@@ -65,7 +60,7 @@ export const customerResolvers = {
     createCustomer: async (
       _: any,
       { input }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -82,7 +77,7 @@ export const customerResolvers = {
       const { name, email, phone } = input;
 
       try {
-        const newCustomer = await prisma.customer.create({
+        const newCustomer = await db.customer.create({
           data: {
             name,
             email,
@@ -105,21 +100,20 @@ export const customerResolvers = {
     deleteCustomer: async (
       _: any,
       { id }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      const customer = await prisma.customer.findFirst({
+      const customer = await db.customer.findFirst({
         where: {
           id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
           deletedAt: null,
         },
       });
 
       if (!customer) throw forbidden("Customer not found or access denied.");
 
-      await prisma.customer.update({
+      await db.customer.update({
         where: { id: customer.id },
         data: { deletedAt: new Date() },
       });
@@ -135,7 +129,7 @@ export const customerResolvers = {
     updateCustomer: async (
       _: any,
       { id, input }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -146,7 +140,6 @@ export const customerResolvers = {
 
       const where = {
         id: id,
-        ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         deletedAt: null,
       };
 
@@ -159,14 +152,14 @@ export const customerResolvers = {
       if (Object.keys(updateData).length === 0)
         throw badInput("No data sent to be updated.");
 
-      const customer = await prisma.customer.findFirst({ where });
+      const customer = await db.customer.findFirst({ where });
 
       if (!customer) {
         throw forbidden("Customer not found or access denied.");
       }
 
       try {
-        const updatedCustomer = await prisma.customer.update({
+        const updatedCustomer = await db.customer.update({
           where: { id: id },
           data: updateData,
         });

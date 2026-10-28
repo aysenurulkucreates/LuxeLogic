@@ -9,11 +9,7 @@ const ASSIGNABLE_ROLES = ["TENANT_ADMIN", "DOCTOR", "NURSE", "STAFF"];
 export const staffResolvers = {
   Query: {
     // staff
-    myStaff: async (
-      _: any,
-      { searchTerm }: any,
-      { prisma, user }: myContext,
-    ) => {
+    myStaff: async (_: any, { searchTerm }: any, { db, user }: myContext) => {
       const me = requireAuth(user);
 
       const cleanSearch = searchTerm?.trim();
@@ -28,9 +24,8 @@ export const staffResolvers = {
           }
         : {};
 
-      return await prisma.staff.findMany({
+      return await db.staff.findMany({
         where: {
-          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
           isActive: true,
           ...searchFilter,
         },
@@ -39,14 +34,13 @@ export const staffResolvers = {
     getStaff: async (
       _: any,
       { id }: { id: string },
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireAuth(user);
 
-      const staff = await prisma.staff.findFirst({
+      const staff = await db.staff.findFirst({
         where: {
           id: id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
           isActive: true,
         },
       });
@@ -59,7 +53,7 @@ export const staffResolvers = {
     createStaff: async (
       _: any,
       { input }: any,
-      { prisma, user, io }: myContext,
+      { db, prisma, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
@@ -100,7 +94,7 @@ export const staffResolvers = {
       }
 
       try {
-        const newStaff = await prisma.$transaction(async (tx: any) => {
+        const newStaff = await db.$transaction(async (tx: any) => {
           let userId: string | null = null;
 
           if (needsLogin) {
@@ -144,25 +138,20 @@ export const staffResolvers = {
         throw new Error("An unexpected error occurred while creating staff");
       }
     },
-    deleteStaff: async (
-      _: any,
-      { id }: any,
-      { prisma, user, io }: myContext,
-    ) => {
+    deleteStaff: async (_: any, { id }: any, { db, user, io }: myContext) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       // önce sahiplik, personeli kendi kliniğinde ara.
-      const staff = await prisma.staff.findFirst({
+      const staff = await db.staff.findFirst({
         where: {
           id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
       if (!staff) throw forbidden("Staff not found or access denied.");
 
       // silme yok, pasifleştir, randevlara dokunma
-      await prisma.staff.update({
+      await db.staff.update({
         where: { id: staff.id },
         data: { isActive: false },
       });
@@ -178,13 +167,12 @@ export const staffResolvers = {
     updateStaff: async (
       _: any,
       { id, input }: any,
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       const where = {
         id: id,
-        ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
       };
 
       const {
@@ -210,13 +198,13 @@ export const staffResolvers = {
       if (Object.keys(updateData).length === 0)
         throw badInput("No data sent to be updated.");
 
-      const staff = await prisma.staff.findFirst({ where });
+      const staff = await db.staff.findFirst({ where });
       if (!staff) throw forbidden("Staff not found or access denied.");
 
       const emailChanged = email !== undefined && email !== staff.email;
 
       try {
-        const updatedStaff = await prisma.$transaction(async (tx: any) => {
+        const updatedStaff = await db.$transaction(async (tx: any) => {
           if (emailChanged && staff.userId) {
             await tx.user.update({
               where: { id: staff.userId },

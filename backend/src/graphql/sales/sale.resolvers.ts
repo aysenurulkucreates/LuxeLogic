@@ -5,11 +5,7 @@ import { badInput, forbidden } from "../../lib/errors.js";
 export const saleResolvers = {
   Query: {
     // sales
-    mySales: async (
-      _: any,
-      { searchTerm }: any,
-      { prisma, user }: myContext,
-    ) => {
+    mySales: async (_: any, { searchTerm }: any, { db, user }: myContext) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
         "DOCTOR",
@@ -35,11 +31,8 @@ export const saleResolvers = {
           }
         : {};
 
-      return await prisma.sale.findMany({
-        where: {
-          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
-          ...searchFilter,
-        },
+      return await db.sale.findMany({
+        where: { ...searchFilter },
         include: {
           product: true,
           customer: true,
@@ -51,7 +44,7 @@ export const saleResolvers = {
     getSale: async (
       _: any,
       { id }: { id: string },
-      { prisma, user }: myContext,
+      { db, user }: myContext,
     ) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
@@ -60,10 +53,9 @@ export const saleResolvers = {
         "SUPER_ADMIN",
       ]);
 
-      const sale = await prisma.sale.findFirst({
+      const sale = await db.sale.findFirst({
         where: {
           id: id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
         include: {
           product: true,
@@ -76,11 +68,7 @@ export const saleResolvers = {
   },
   Mutation: {
     // sales
-    createSale: async (
-      _: any,
-      { input }: any,
-      { prisma, user, io }: myContext,
-    ) => {
+    createSale: async (_: any, { input }: any, { db, user, io }: myContext) => {
       const me = requireRole(user, [
         "TENANT_ADMIN",
         "DOCTOR",
@@ -95,7 +83,7 @@ export const saleResolvers = {
 
       if (!targetTenantId) throw badInput("Target tenant ID is required.");
 
-      const newSale = await prisma.$transaction(async (tx: any) => {
+      const newSale = await db.$transaction(async (tx: any) => {
         // A- ürünü sadece bu klinikte ara
         const product = await tx.product.findFirst({
           where: { id: productId, tenantId: targetTenantId },
@@ -146,20 +134,19 @@ export const saleResolvers = {
     deleteSale: async (
       _: any,
       { id }: { id: string },
-      { prisma, user, io }: myContext,
+      { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      const sale = await prisma.sale.findFirst({
+      const sale = await db.sale.findFirst({
         where: {
           id,
-          ...(me.role !== "SUPER_ADMIN" ? { tenantId: me.tenantId } : {}),
         },
       });
 
       if (!sale) throw forbidden("Sale not found or access denied.");
 
-      await prisma.$transaction(async (tx: any) => {
+      await db.$transaction(async (tx: any) => {
         await tx.sale.delete({ where: { id: sale.id } });
 
         await tx.product.update({
