@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 import { Server } from "socket.io";
+import { tenantScope } from "../lib/tenantScope.js";
 
 export type Role =
   | "SUPER_ADMIN"
@@ -17,12 +18,14 @@ export interface myContext {
     role: Role;
   };
   prisma: any;
+  db: any;
   io: any;
 }
 
 export interface GraphQLContext {
   user: any | null;
   prisma: typeof prisma;
+  db: ReturnType<typeof createDb>;
   io: Server;
 }
 
@@ -61,6 +64,16 @@ export const createContext = async ({
   const token = auth.replace("Bearer ", "");
 
   const user = await getUserFromToken(token);
+  const db = createDb(user);
 
-  return { user, prisma, io };
+  return { user, prisma, db, io };
+};
+
+export const createDb = (
+  user: { role: string; tenantId: string | null } | null,
+) => {
+  if (!user) return null;
+  if (user.role === "SUPER_ADMIN") return prisma;
+  if (!user.tenantId) return null;
+  return prisma.$extends(tenantScope(user.tenantId));
 };
