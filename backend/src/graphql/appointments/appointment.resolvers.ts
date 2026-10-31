@@ -125,12 +125,33 @@ export const appointmentResolvers = {
         throw badInput("Target tenant ID is required.");
       }
 
+      if (!customerId) throw badInput("Customer is required.");
+      if (!staffId) throw badInput("Staff member is required");
+
+      const customer = await db.customer.findFirst({
+        where: { id: customerId, tenantId: targetTenantId, deletedAt: null },
+      });
+
+      if (!customer) throw forbidden("Customer not found or access denied.");
+
+      if (me.role !== "DOCTOR") {
+        const staff = await db.staff.findFirst({
+          where: {
+            id: staffId,
+            tenantId: targetTenantId,
+            isActive: true,
+            role: "DOCTOR",
+          },
+        });
+        if (!staff) throw forbidden("Staff not found or access denied.");
+      }
+
       const existingAppointment = await db.appointment.findFirst({
         where: {
           tenantId: targetTenantId,
           status: { not: "CANCELLED" },
           AND: [
-            { startTime: { lt: new Date(endTime) } }, // lt: les than $startTime < input.endTime$
+            { startTime: { lt: new Date(endTime) } }, // lt: less than $startTime < input.endTime$
             { endTime: { gt: new Date(startTime) } }, // gt: greater than $endTime > input.startTime$
           ],
           OR: [{ staffId }, { customerId }],
@@ -242,6 +263,33 @@ export const appointmentResolvers = {
         staffId !== currentApp.staffId
       )
         throw forbidden("Doctors can only manage their own appointments");
+
+      if (customerId !== undefined && customerId !== currentApp.customerId) {
+        if (!customerId) throw badInput("Customer is required.");
+
+        const customer = await db.customer.findFirst({
+          where: {
+            id: customerId,
+            tenantId: currentApp.tenantId,
+            deletedAt: null,
+          },
+        });
+        if (!customer) throw forbidden("Customer not found or access denied.");
+      }
+
+      if (staffId !== undefined && staffId !== currentApp.staffId) {
+        if (!staffId) throw badInput("Staff member is required.");
+
+        const staff = await db.staff.findFirst({
+          where: {
+            id: staffId,
+            tenantId: currentApp.tenantId,
+            isActive: true,
+            role: "DOCTOR",
+          },
+        });
+        if (!staff) throw forbidden("Staff not sound or access denied.");
+      }
 
       const updateData: any = {};
 
