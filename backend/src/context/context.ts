@@ -1,33 +1,31 @@
 import jwt from "jsonwebtoken";
-import prisma from "../lib/prisma.js";
 import { Server } from "socket.io";
+import prisma from "../lib/prisma.js";
 import { tenantScope } from "../lib/tenantScope.js";
 
-export type Role =
-  | "SUPER_ADMIN"
-  | "TENANT_ADMIN"
-  | "DOCTOR"
-  | "NURSE"
-  | "STAFF";
+// --- Tipler: hepsi gerçek koddan türetiliyor, elle yazılmış şekil yok ---
+
+// getUserFromToken'ın döndürdüğü kullanıcı (tenant ve staff dahil), null hariç
+export type AuthUser = NonNullable<
+  Awaited<ReturnType<typeof getUserFromToken>>
+>;
+
+// Rol listesi schema.prisma'daki enum'dan geliyor
+export type Role = AuthUser["role"];
+
+// Kiracıya kilitli client; db'nin tek tipi bu
+const scopedDb = (tenantId: string) => prisma.$extends(tenantScope(tenantId));
+export type Db = ReturnType<typeof scopedDb>;
 
 export interface myContext {
-  user?: {
-    id: string;
-    email: string;
-    tenantId: string;
-    role: Role;
-  };
-  prisma: any;
-  db: any;
-  io: any;
-}
-
-export interface GraphQLContext {
-  user: any | null;
+  user: AuthUser | null;
   prisma: typeof prisma;
-  db: ReturnType<typeof createDb>;
+  db: Db | null; // giriş yoksa null (fail closed)
   io: Server;
 }
+
+// Eski ad: başka bir dosya bunu kullanıyorsa kırılmasın
+export type GraphQLContext = myContext;
 
 export const getUserFromToken = async (token?: string | null) => {
   if (!token) return null;
@@ -57,9 +55,9 @@ export const createContext = async ({
   req,
   io,
 }: {
-  req: any;
+  req: { headers: { authorization?: string } }; // sadece kullandığımız kısım
   io: Server;
-}): Promise<GraphQLContext> => {
+}): Promise<myContext> => {
   const auth = req.headers.authorization || "";
   const token = auth.replace("Bearer ", "");
 
@@ -70,10 +68,13 @@ export const createContext = async ({
 };
 
 export const createDb = (
-  user: { role: string; tenantId: string | null } | null,
-) => {
+  user: Pick<AuthUser, "role" | "tenantId"> | null,
+): Db | null => {
   if (!user) return null;
-  if (user.role === "SUPER_ADMIN") return prisma;
+  // Geçici (Seçenek A ile kalkacak): SUPER_ADMIN kilitsiz.
+  // Extension sadece sorguların içeriğini değiştiriyor, metotları değil;
+  // bu yüzden düz prisma çalışma zamanında Db ile aynı şekle sahip.
+  if (user.role === "SUPER_ADMIN") return prisma as unknown as Db;
   if (!user.tenantId) return null;
-  return prisma.$extends(tenantScope(user.tenantId));
+  return scopedDb(user.tenantId);
 };

@@ -1,4 +1,4 @@
-import { requireAuth, requireRole } from "../../lib/auth.js";
+import { assertDb, requireAuth, requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
 import { forbidden, badInput } from "../../lib/errors.js";
 import bcrypt from "bcryptjs";
@@ -11,6 +11,7 @@ export const staffResolvers = {
     // staff
     myStaff: async (_: any, { searchTerm }: any, { db, user }: myContext) => {
       const me = requireAuth(user);
+      assertDb(db);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -37,6 +38,7 @@ export const staffResolvers = {
       { db, user }: myContext,
     ) => {
       const me = requireAuth(user);
+      assertDb(db);
 
       const staff = await db.staff.findFirst({
         where: {
@@ -56,6 +58,7 @@ export const staffResolvers = {
       { db, prisma, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       const {
         name,
@@ -140,6 +143,7 @@ export const staffResolvers = {
     },
     deleteStaff: async (_: any, { id }: any, { db, user, io }: myContext) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       // önce sahiplik, personeli kendi kliniğinde ara.
       const staff = await db.staff.findFirst({
@@ -170,6 +174,7 @@ export const staffResolvers = {
       { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       const where = {
         id: id,

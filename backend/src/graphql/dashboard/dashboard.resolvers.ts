@@ -1,10 +1,11 @@
 import { myContext } from "../../context/context.js";
-import { requireRole } from "../../lib/auth.js";
+import { assertDb, requireRole } from "../../lib/auth.js";
 
 export const dashboardResolvers = {
   Query: {
     getDashboardStats: async (_: any, __: any, { db, user }: myContext) => {
       requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       try {
         const [
@@ -56,6 +57,7 @@ export const dashboardResolvers = {
     },
     getRecentCustomers: async (_: any, __: any, { user, db }: myContext) => {
       requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       return await db.customer.findMany({
         where: {

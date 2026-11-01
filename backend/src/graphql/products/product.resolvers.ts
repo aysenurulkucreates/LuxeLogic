@@ -1,5 +1,5 @@
 import { myContext } from "../../context/context.js";
-import { requireRole } from "../../lib/auth.js";
+import { assertDb, requireRole } from "../../lib/auth.js";
 import { badInput, forbidden } from "../../lib/errors.js";
 
 export const productResolvers = {
@@ -15,6 +15,7 @@ export const productResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -44,6 +45,7 @@ export const productResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const product = await db.product.findFirst({
         where: {
@@ -61,6 +63,7 @@ export const productResolvers = {
       { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       const targetTenantId =
         me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
@@ -90,6 +93,7 @@ export const productResolvers = {
     },
     deleteProduct: async (_: any, { id }: any, { db, user, io }: myContext) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       const product = await db.product.findFirst({
         where: {
@@ -116,6 +120,7 @@ export const productResolvers = {
       { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       const { name, category, price, stock } = input;
       const updateData: any = {};

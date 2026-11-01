@@ -1,4 +1,4 @@
-import { requireRole } from "../../lib/auth.js";
+import { assertDb, requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
 import { badInput, forbidden } from "../../lib/errors.js";
 
@@ -16,6 +16,7 @@ export const appointmentResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const cleanSearch = input.searchTerm?.trim();
       const searchFilter = cleanSearch
@@ -77,6 +78,7 @@ export const appointmentResolvers = {
         "STAFF",
         "DOCTOR",
       ]);
+      assertDb(db);
 
       const appointment = await db.appointment.findFirst({
         where: {
@@ -102,6 +104,7 @@ export const appointmentResolvers = {
         "SUPER_ADMIN",
         "DOCTOR",
       ]);
+      assertDb(db);
 
       const { startTime, endTime, status, price, customerId } = input;
       let staffId = input.staffId;
@@ -194,6 +197,7 @@ export const appointmentResolvers = {
       { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       if (!id) throw badInput("Appointment id is required.");
 
@@ -239,6 +243,7 @@ export const appointmentResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const targetTenantId =
         me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
@@ -351,6 +356,7 @@ export const appointmentResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const appointment = await db.appointment.findFirst({
         where: {

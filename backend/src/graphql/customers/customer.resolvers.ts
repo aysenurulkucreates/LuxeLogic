@@ -1,5 +1,5 @@
 import { myContext } from "../../context/context.js";
-import { requireRole } from "../../lib/auth.js";
+import { assertDb, requireRole } from "../../lib/auth.js";
 import { badInput, forbidden } from "../../lib/errors.js";
 
 export const customerResolvers = {
@@ -16,6 +16,7 @@ export const customerResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const cleanSearch = searchTerm?.trim();
       const searchFilter = searchTerm
@@ -44,6 +45,7 @@ export const customerResolvers = {
         "DOCTOR",
         "STAFF",
       ]);
+      assertDb(db);
 
       const customer = await db.customer.findFirst({
         where: {
@@ -68,6 +70,7 @@ export const customerResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const targetTenantId =
         me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
@@ -103,6 +106,7 @@ export const customerResolvers = {
       { db, user, io }: myContext,
     ) => {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+      assertDb(db);
 
       const customer = await db.customer.findFirst({
         where: {
@@ -137,6 +141,7 @@ export const customerResolvers = {
         "STAFF",
         "SUPER_ADMIN",
       ]);
+      assertDb(db);
 
       const where = {
         id: id,
