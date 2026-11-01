@@ -3,11 +3,8 @@ import { requireRole } from "../../lib/auth.js";
 
 export const dashboardResolvers = {
   Query: {
-    getDashboardStats: async (_: any, __: any, { prisma, user }: myContext) => {
-      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
-
-      const tenanFilter =
-        me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId };
+    getDashboardStats: async (_: any, __: any, { db, user }: myContext) => {
+      requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
       try {
         const [
@@ -20,22 +17,21 @@ export const dashboardResolvers = {
           salesSum,
         ] = await Promise.all([
           // silinmiş müşteriler sayılmaz.
-          prisma.customer.count({ where: { ...tenanFilter, deletedAt: null } }),
+          db.customer.count({ where: { deletedAt: null } }),
           // pasif personel sayılmaz.
-          prisma.staff.count({ where: { ...tenanFilter, isActive: true } }),
-          prisma.product.count({ where: tenanFilter }),
-          prisma.appointment.count({ where: tenanFilter }),
+          db.staff.count({ where: { isActive: true } }),
+          db.product.count(),
+          db.appointment.count(),
 
-          prisma.appointment.aggregate({
+          db.appointment.aggregate({
             _sum: { price: true },
-            where: { ...tenanFilter, status: "COMPLETED" },
+            where: { status: "COMPLETED" },
           }),
 
-          prisma.sale.count({ where: tenanFilter }),
+          db.sale.count(),
 
-          prisma.sale.aggregate({
+          db.sale.aggregate({
             _sum: { totalPrice: true },
-            where: tenanFilter,
           }),
         ]);
 
@@ -58,16 +54,11 @@ export const dashboardResolvers = {
         throw new Error("Failed to fetch clinic statistics.");
       }
     },
-    getRecentCustomers: async (
-      _: any,
-      __: any,
-      { user, prisma }: myContext,
-    ) => {
-      const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
+    getRecentCustomers: async (_: any, __: any, { user, db }: myContext) => {
+      requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
 
-      return await prisma.customer.findMany({
+      return await db.customer.findMany({
         where: {
-          ...(me.role === "SUPER_ADMIN" ? {} : { tenantId: me.tenantId }),
           deletedAt: null,
         },
         orderBy: { createdAt: "desc" },
