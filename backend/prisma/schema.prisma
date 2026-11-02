@@ -73,6 +73,7 @@ model Customer {
   sale Sale[]
 
   @@index([tenantId, email])
+  @@unique([id, tenantId])
 }
 
 // bone characteristics for staff.
@@ -100,6 +101,7 @@ model Staff {
   appointment Appointment[]
 
   @@index([tenantId, email])
+  @@unique([id, tenantId])
 }
 
 // bone characteristics for products.
@@ -133,10 +135,10 @@ model Appointment {
   notes  String?
 
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId, tenantId], references: [id, tenantId])
 
   staffId String
-  staff   Staff  @relation(fields: [staffId], references: [id])
+  staff   Staff  @relation(fields: [staffId, tenantId], references: [id, tenantId])
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
