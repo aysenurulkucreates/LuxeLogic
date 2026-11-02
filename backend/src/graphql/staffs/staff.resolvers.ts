@@ -89,22 +89,24 @@ export const staffResolvers = {
           throw badInput("This email is already registered to another user.");
       }
 
-      let tempPassword: string | null = null;
-      let hashedPassword: string | null = null;
+      let login: { tempPassword: string; hashedPassword: string } | null = null;
       if (needsLogin) {
-        tempPassword = crypto.randomBytes(9).toString("base64url");
-        hashedPassword = await bcrypt.hash(tempPassword, 10);
+        const tempPassword = crypto.randomBytes(9).toString("base64url");
+        login = {
+          tempPassword,
+          hashedPassword: await bcrypt.hash(tempPassword, 10),
+        };
       }
 
       try {
-        const newStaff = await db.$transaction(async (tx: any) => {
+        const newStaff = await db.$transaction(async (tx) => {
           let userId: string | null = null;
 
-          if (needsLogin) {
+          if (login) {
             const newUser = await tx.user.create({
               data: {
                 email,
-                password: hashedPassword,
+                password: login.hashedPassword,
                 role,
                 tenantId: targetTenantId,
                 profileImage: imageUrl || "",
@@ -131,7 +133,7 @@ export const staffResolvers = {
 
         io.to(targetTenantId).emit("staff_created", { id: newStaff.id });
 
-        return { staff: newStaff, tempPassword };
+        return { staff: newStaff, tempPassword: login?.tempPassword ?? null };
       } catch (err: any) {
         // iki ynetici aynı anda aynı e-postayı eklerse ikisi de ön kontrolü geçebilir.
         if (err.code === "P2002")
@@ -209,7 +211,7 @@ export const staffResolvers = {
       const emailChanged = email !== undefined && email !== staff.email;
 
       try {
-        const updatedStaff = await db.$transaction(async (tx: any) => {
+        const updatedStaff = await db.$transaction(async (tx) => {
           if (emailChanged && staff.userId) {
             await tx.user.update({
               where: { id: staff.userId },

@@ -86,7 +86,7 @@ export const saleResolvers = {
 
       if (!targetTenantId) throw badInput("Target tenant ID is required.");
 
-      const newSale = await db.$transaction(async (tx: any) => {
+      const newSale = await db.$transaction(async (tx) => {
         // A- ürünü sadece bu klinikte ara
         const product = await tx.product.findFirst({
           where: { id: productId, tenantId: targetTenantId },
