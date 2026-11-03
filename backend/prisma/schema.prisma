@@ -121,6 +121,7 @@ model Product {
   sale Sale[]
 
   @@index([tenantId])
+  @@unique([id, tenantId])
 }
 
 // bone characteristics for appointments.
@@ -154,7 +155,7 @@ model Sale {
   id String @id @default(cuid()) // cuid is used to prevent fragmentation because it grows faster.
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId, tenantId], references: [id, tenantId])
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
