@@ -110,7 +110,7 @@ model Product {
   tenantId String
   name     String
   category String
-  price    Decimal @default(0.0)
+  price    Decimal @default(0.0)  @db.Decimal(10,2)
   stock    Int     @default(0)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -131,7 +131,7 @@ model Appointment {
   startTime DateTime
   endTime   DateTime
 
-  price  Decimal           @default(0.0)
+  price  Decimal           @default(0.0)  @db.Decimal(10,2)
   status AppointmentStatus @default(PENDING)
   notes  String?
 
@@ -147,7 +147,7 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([tenantId, startTime, customerId])
+  @@index([tenantId, startTime, customerId, staffId])
 }
 
 // bone characteristics for sales.
@@ -161,13 +161,13 @@ model Sale {
   customer   Customer? @relation(fields: [customerId], references: [id])
 
   quantity   Int     @default(1)
-  totalPrice Decimal
+  totalPrice Decimal  @db.Decimal(10, 2)
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([tenantId]) // for performance purposes, when there are thousands of sales, it only retrieves those belonging to the tenantId.
+  @@index([tenantId, productId, customerId]) // for performance purposes, when there are thousands of sales, it only retrieves those belonging to the tenantId.
 }
