@@ -1,3 +1,8 @@
+import { validate } from "../../validation/validate.js";
+import {
+  createCustomerSchema,
+  updateCustomerSchema,
+} from "../../validation/customer.schema.js";
 import { myContext } from "../../context/context.js";
 import { assertDb, requireRole } from "../../lib/auth.js";
 import { badInput, forbidden } from "../../lib/errors.js";
@@ -77,7 +82,7 @@ export const customerResolvers = {
 
       if (!targetTenantId) throw badInput("Target tenant ID is required!");
 
-      const { name, email, phone } = input;
+      const { name, email, phone } = validate(createCustomerSchema, input);
 
       try {
         const newCustomer = await db.customer.create({
@@ -148,14 +153,7 @@ export const customerResolvers = {
         deletedAt: null,
       };
 
-      const { name, email, phone } = input;
-      const updateData: any = {};
-      if (name !== undefined) updateData.name = name;
-      if (email !== undefined) updateData.email = email;
-      if (phone !== undefined) updateData.phone = phone;
-
-      if (Object.keys(updateData).length === 0)
-        throw badInput("No data sent to be updated.");
+      const updateData = validate(updateCustomerSchema, input);
 
       const customer = await db.customer.findFirst({ where });
 
