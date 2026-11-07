@@ -94,7 +94,7 @@ export const customerResolvers = {
           },
         });
 
-        io.to(targetTenantId).emit("customer_created", newCustomer);
+        io.to(targetTenantId).emit("customer_created", { id: newCustomer.id });
 
         return newCustomer;
       } catch (err: any) {
@@ -167,10 +167,9 @@ export const customerResolvers = {
           data: updateData,
         });
 
-        io.to(updatedCustomer.tenantId).emit(
-          "customer_updated",
-          updatedCustomer,
-        );
+        io.to(updatedCustomer.tenantId).emit("customer_updated", {
+          id: updatedCustomer.id,
+        });
 
         return updatedCustomer;
       } catch (error: any) {
