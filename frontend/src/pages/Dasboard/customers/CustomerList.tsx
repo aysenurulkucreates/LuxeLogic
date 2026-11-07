@@ -2,14 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useQuery, useApolloClient } from "@apollo/client";
 import { GET_MY_CUSTOMERS } from "../../../graphql/queries/auth";
 import { DELETE_CUSTOMER } from "../../../graphql/mutations/customers";
-import {
-  UserPlus,
-  Mail,
-  Phone,
-  Pencil,
-  Trash2,
-  Lock,
-} from "lucide-react";
+import { UserPlus, Mail, Phone, Pencil, Trash2, Lock } from "lucide-react";
 import AddCustomerModal from "../../../components/shared/AddCustomerModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
@@ -61,24 +54,15 @@ const CustomerList: React.FC = () => {
 
   const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
     refetchQueries: [{ query: GET_MY_CUSTOMERS }],
-    onCompleted: () =>
-      toast.success("Customer deleted."),
+    onCompleted: () => toast.success("Customer deleted."),
     onError: (err) => toast.error(`Could not delete customer: ${err.message}`),
   });
 
   useEffect(() => {
-    const handleCreated = (newCustomer: Customer) => {
-      toast.success(`New customer added: ${newCustomer.name}`);
-      client.cache.updateQuery(
-        {
-          query: GET_MY_CUSTOMERS,
-          variables: { searchTerm: debouncedSearchTerm },
-        },
-        (existingData) => {
-          if (!existingData) return null;
-          return { myCustomers: [...existingData.myCustomers, newCustomer] };
-        },
-      );
+    // Olay sadece { id } taşıyor: güncel listeyi API'den yeniden çekiyoruz
+    const handleCreated = () => {
+      toast.success("A new customer was added.");
+      refetch();
     };
 
     const handleDeleted = (deletedId: string) => {
@@ -99,8 +83,9 @@ const CustomerList: React.FC = () => {
       );
     };
 
-    const handleUpdated = (updatedCustomer: Customer) => {
-      toast.success(`${updatedCustomer.name} was updated.`);
+    // Olay sadece { id } taşıyor: güncel listeyi API'den yeniden çekiyoruz
+    const handleUpdated = () => {
+      toast.success("A customer was updated.");
       refetch();
     };
 
