@@ -1,3 +1,8 @@
+import { validate } from "../../validation/validate.js";
+import {
+  createAppointmentSchema,
+  updateAppointmentSchema,
+} from "../../validation/appointment.schema.js";
 import { assertDb, requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
 import { badInput, forbidden } from "../../lib/errors.js";
@@ -106,8 +111,9 @@ export const appointmentResolvers = {
       ]);
       assertDb(db);
 
-      const { startTime, endTime, status, price, customerId } = input;
-      let staffId = input.staffId;
+      const data = validate(createAppointmentSchema, input);
+      const { startTime, endTime, status, price, customerId, notes } = data;
+      let staffId = data.staffId;
 
       if (me.role === "DOCTOR") {
         const myStaff = await db.staff.findFirst({
@@ -127,9 +133,6 @@ export const appointmentResolvers = {
       if (!targetTenantId) {
         throw badInput("Target tenant ID is required.");
       }
-
-      if (!customerId) throw badInput("Customer is required.");
-      if (!staffId) throw badInput("Staff member is required");
 
       const customer = await db.customer.findFirst({
         where: { id: customerId, tenantId: targetTenantId, deletedAt: null },
@@ -154,8 +157,8 @@ export const appointmentResolvers = {
           tenantId: targetTenantId,
           status: { not: "CANCELLED" },
           AND: [
-            { startTime: { lt: new Date(endTime) } }, // lt: less than $startTime < input.endTime$
-            { endTime: { gt: new Date(startTime) } }, // gt: greater than $endTime > input.startTime$
+            { startTime: { lt: endTime } }, // mevcut başlangıç < yeni bitiş
+            { endTime: { gt: startTime } }, // mevcut bitiş > yeni başlangıç
           ],
           OR: [{ staffId }, { customerId }],
         },
@@ -171,11 +174,11 @@ export const appointmentResolvers = {
 
       const newApp = await db.appointment.create({
         data: {
-          startTime: new Date(startTime),
-          endTime: new Date(endTime),
-          price: price,
-          status: status || "PENDING",
-          notes: input.notes,
+          startTime,
+          endTime,
+          price,
+          status,
+          notes,
           tenant: { connect: { id: targetTenantId } },
           customer: { connect: { id: customerId } },
           staff: { connect: { id: staffId } },
@@ -245,6 +248,9 @@ export const appointmentResolvers = {
       ]);
       assertDb(db);
 
+      const data = validate(updateAppointmentSchema, input); // yetkiden sonra, veritabanından önce
+      const { startTime, endTime, staffId, customerId } = data;
+
       const targetTenantId =
         me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
 
@@ -259,9 +265,6 @@ export const appointmentResolvers = {
       if (!currentApp)
         throw forbidden("Appointment not found or access denied.");
 
-      const { startTime, endTime, status, staffId, customerId, notes, price } =
-        input;
-
       if (
         me.role === "DOCTOR" &&
         staffId !== undefined &&
@@ -270,8 +273,6 @@ export const appointmentResolvers = {
         throw forbidden("Doctors can only manage their own appointments");
 
       if (customerId !== undefined && customerId !== currentApp.customerId) {
-        if (!customerId) throw badInput("Customer is required.");
-
         const customer = await db.customer.findFirst({
           where: {
             id: customerId,
@@ -283,8 +284,6 @@ export const appointmentResolvers = {
       }
 
       if (staffId !== undefined && staffId !== currentApp.staffId) {
-        if (!staffId) throw badInput("Staff member is required.");
-
         const staff = await db.staff.findFirst({
           where: {
             id: staffId,
@@ -293,25 +292,23 @@ export const appointmentResolvers = {
             role: "DOCTOR",
           },
         });
-        if (!staff) throw forbidden("Staff not sound or access denied.");
+        if (!staff) throw forbidden("Staff not found or access denied."); // "sound" düzeldi
       }
 
-      const updateData: any = {};
+      // Sadece biri gönderilse bile, gelenle mevcut olanı birlikte kontrol et
+      const checkStart = startTime ?? currentApp.startTime;
+      const checkEnd = endTime ?? currentApp.endTime;
 
-      if (startTime !== undefined) updateData.startTime = new Date(startTime);
-      if (endTime !== undefined) updateData.endTime = new Date(endTime);
-      if (price !== undefined) updateData.price = price;
-      if (status !== undefined) updateData.status = status;
-      if (notes !== undefined) updateData.notes = notes;
-      if (staffId !== undefined) updateData.staffId = staffId;
-      if (customerId !== undefined) updateData.customerId = customerId;
+      if (
+        (startTime !== undefined || endTime !== undefined) &&
+        checkEnd <= checkStart
+      )
+        throw badInput("End time must be after start time.");
 
       // çakışma kontrolü
       if (startTime || endTime || staffId || customerId) {
-        const checkStart = updateData.startTime || currentApp.startTime;
-        const checkEnd = updateData.endTime || currentApp.endTime;
-        const checkStaff = updateData.staffId || currentApp.staffId;
-        const checkCustomer = updateData.customerId || currentApp.customerId;
+        const checkStaff = staffId ?? currentApp.staffId;
+        const checkCustomer = customerId ?? currentApp.customerId;
 
         const conflict = await db.appointment.findFirst({
           where: {
@@ -329,14 +326,11 @@ export const appointmentResolvers = {
         if (conflict)
           throw badInput("This time clashes with another appointment.");
       }
+
       const updatedApp = await db.appointment.update({
-        where: { id: id },
-        data: updateData,
-        include: {
-          staff: true,
-          customer: true,
-          tenant: true,
-        },
+        where: { id },
+        data, // doğrulanmış, tipli veri
+        include: { staff: true, customer: true, tenant: true },
       });
 
       io.to(updatedApp.tenantId).emit("appointment_updated", {
