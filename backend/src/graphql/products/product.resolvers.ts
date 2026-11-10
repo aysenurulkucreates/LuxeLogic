@@ -1,3 +1,8 @@
+import { validate } from "../../validation/validate.js";
+import {
+  createProductSchema,
+  updateProductSchema,
+} from "../../validation/product.schema.js";
 import { myContext } from "../../context/context.js";
 import { assertDb, requireRole } from "../../lib/auth.js";
 import { badInput, forbidden } from "../../lib/errors.js";
@@ -70,7 +75,10 @@ export const productResolvers = {
 
       if (!targetTenantId) throw badInput("Target tenant ID is required!");
 
-      const { name, price, category, stock } = input;
+      const { name, price, category, stock } = validate(
+        createProductSchema,
+        input,
+      );
 
       try {
         const newProduct = await db.product.create({
@@ -122,16 +130,7 @@ export const productResolvers = {
       const me = requireRole(user, ["TENANT_ADMIN", "SUPER_ADMIN"]);
       assertDb(db);
 
-      const { name, category, price, stock } = input;
-      const updateData: any = {};
-
-      if (name !== undefined) updateData.name = name;
-      if (category !== undefined) updateData.category = category;
-      if (price !== undefined) updateData.price = price;
-      if (stock !== undefined) updateData.stock = stock;
-
-      if (Object.keys(updateData).length === 0)
-        throw badInput("No data sent to be updated.");
+      const updateData = validate(updateProductSchema, input);
 
       const product = await db.product.findFirst({
         where: {
