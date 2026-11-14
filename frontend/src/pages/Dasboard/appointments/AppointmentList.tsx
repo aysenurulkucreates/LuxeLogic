@@ -26,6 +26,14 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
+import { useAuth } from "../../../hooks/useAuth";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
+import {
+  canDeleteAppointment,
+  canEditAppointment,
+  isClosedAppointment,
+} from "../../../config/permissions";
+import { formatMoney } from "../../../lib/format";
 
 // --- INTERFACES (Pırlanta Tipler) ---
 interface Staff {
@@ -69,6 +77,14 @@ const AppointmentList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
+  // Onay bekleyen işlem: tamamlama ya da silme
+  const [pendingAction, setPendingAction] = useState<{
+    type: "complete" | "delete";
+    appointment: Appointment;
+  } | null>(null);
+
+  const { user } = useAuth();
+  const role = user?.role;
 
   const socket = useSocket();
   // kilit hafızası
@@ -130,7 +146,7 @@ const AppointmentList = () => {
 
     socket.on("appointment_created", handleAppointmentsChanged);
     socket.on("appointment_updated", handleAppointmentsChanged);
-    socket.on("appointment_status_updatedted", handleAppointmentsChanged);
+    socket.on("appointment_status_updated", handleAppointmentsChanged);
     socket.on("appointment_deleted", handleAppointmentsChanged);
     socket.on("staff_deleted", handleStaffDeleted);
 
@@ -144,14 +160,28 @@ const AppointmentList = () => {
   }, [socket, refetch]);
 
   // --- HANDLERS ---
-  const handleStatusUpdate = async (id: string, newStatus: string) => {
-    await updateAppointmentStatus({ variables: { id, status: newStatus } });
+  const handleStatusUpdate = async (app: Appointment, newStatus: string) => {
+    // Tamamlama geri alınamaz: önce onay iste
+    if (newStatus === "COMPLETED") {
+      setPendingAction({ type: "complete", appointment: app });
+      return;
+    }
+    await updateAppointmentStatus({
+      variables: { id: app.id, status: newStatus },
+    });
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this appointment?")) {
-      await deleteAppointment({ variables: { id } });
+  const handleConfirm = async () => {
+    if (!pendingAction) return;
+    const { type, appointment } = pendingAction;
+    if (type === "complete") {
+      await updateAppointmentStatus({
+        variables: { id: appointment.id, status: "COMPLETED" },
+      });
+    } else {
+      await deleteAppointment({ variables: { id: appointment.id } });
     }
+    setPendingAction(null);
   };
 
   const handleEdit = (appointment: Appointment) => {
@@ -201,6 +231,9 @@ const AppointmentList = () => {
         {/* 📋 RANDEVU DÖNGÜSÜ */}
         {data?.myAppointments?.map((app: Appointment) => {
           const locked = isLocked(app.id);
+          const closed = isClosedAppointment(app.status);
+          const canEdit = canEditAppointment(role, app.status);
+          const canDelete = canDeleteAppointment(role, app.status);
           return (
             <div
               key={app.id}
@@ -332,7 +365,7 @@ const AppointmentList = () => {
               <div className="pt-6 space-y-4 border-t border-slate-50">
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-slate-500 text-left">
-                    Update Status
+                    {closed ? "Status (closed record)" : "Update Status"}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"].map(
@@ -341,18 +374,22 @@ const AppointmentList = () => {
                           key={status}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleStatusUpdate(app.id, status);
+                            handleStatusUpdate(app, status);
                           }}
-                          // 🚨 ŞEF CERRAH DOKUNUŞU 3: Kilitliyse butonları da kilitliyoruz!
+                          // Kilitliyse ya da randevu tamamlandıysa durum değişmez
                           disabled={
-                            statusLoading || app.status === status || locked
+                            statusLoading ||
+                            app.status === status ||
+                            locked ||
+                            closed
                           }
+                          aria-pressed={app.status === status}
                           className={`py-2 rounded-lg text-xs font-semibold transition-all border ${
                             app.status === status && !locked
                               ? "bg-indigo-600 border-indigo-600 text-white shadow-md"
-                              : locked
-                                ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                                : "bg-white border-slate-100 text-slate-400 hover:border-indigo-200"
+                              : locked || closed
+                                ? "bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed"
+                                : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
                           }`}
                         >
                           {status}
@@ -362,33 +399,45 @@ const AppointmentList = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    icon={locked ? Lock : Pencil}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!locked) handleEdit(app);
-                    }}
-                    disabled={locked}
-                    className="flex-1"
-                  >
-                    {locked ? "Locked" : "Edit"}
-                  </Button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!locked) handleDelete(app.id);
-                    }}
-                    disabled={deleteLoading || locked}
-                    className={`px-4 rounded-lg transition-colors border ${
-                      locked
-                        ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
-                        : "bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-100"
-                    }`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                {/* Rolün kullanamayacağı aksiyonlar hiç gösterilmez */}
+                {(canEdit || canDelete) && (
+                  <div className="flex gap-2">
+                    {canEdit && (
+                      <Button
+                        icon={locked ? Lock : Pencil}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!locked) handleEdit(app);
+                        }}
+                        disabled={locked}
+                        className="flex-1"
+                      >
+                        {locked ? "Locked" : "Edit"}
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!locked)
+                            setPendingAction({
+                              type: "delete",
+                              appointment: app,
+                            });
+                        }}
+                        disabled={deleteLoading || locked}
+                        aria-label="Delete appointment"
+                        className={`px-4 py-2 rounded-lg transition-colors border ${
+                          locked
+                            ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
+                            : "bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-100"
+                        }`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -408,6 +457,43 @@ const AppointmentList = () => {
           />
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={
+          pendingAction?.type === "complete"
+            ? "Mark this appointment as completed?"
+            : "Delete this appointment?"
+        }
+        message={
+          pendingAction?.type === "complete" ? (
+            <>
+              <p>
+                Fee:{" "}
+                <span className="font-semibold text-slate-900">
+                  {formatMoney(pendingAction.appointment.price)}
+                </span>
+              </p>
+              <p>After this, only a clinic admin can edit it.</p>
+            </>
+          ) : (
+            <p>
+              The appointment for{" "}
+              <span className="font-semibold text-slate-900">
+                {pendingAction?.appointment.customer?.name}
+              </span>{" "}
+              will be permanently deleted.
+            </p>
+          )
+        }
+        confirmLabel={
+          pendingAction?.type === "complete" ? "Mark as completed" : "Delete"
+        }
+        tone={pendingAction?.type === "delete" ? "danger" : "primary"}
+        isLoading={statusLoading || deleteLoading}
+        onConfirm={handleConfirm}
+        onCancel={() => setPendingAction(null)}
+      />
 
       {/* --- ➕ MODAL --- */}
       <AddAppointmentModal

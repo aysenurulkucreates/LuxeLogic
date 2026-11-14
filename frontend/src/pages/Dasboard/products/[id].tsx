@@ -5,24 +5,55 @@ import { useMutation, useQuery } from "@apollo/client";
 import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
 import AddProductModal from "../../../components/shared/AddProductModal";
 import DetailLayout from "../../../components/shared/DetailLayout";
+import StatTile from "../../../components/detail/StatTile";
+import InfoCard, {
+  FieldList,
+  FieldRow,
+} from "../../../components/detail/InfoCard";
+import StatusBadge, {
+  type BadgeTone,
+} from "../../../components/detail/StatusBadge";
+import NotFoundCard from "../../../components/detail/NotFoundCard";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
-import Button from "../../../components/ui/Button";
-import {
-  Banknote,
-  ClipboardList,
-  Database,
-  Layers,
-  Tag,
-  Package,
-  ArrowLeft,
-} from "lucide-react";
+import { useAuth } from "../../../hooks/useAuth";
+import { can } from "../../../config/permissions";
+import { formatMoney } from "../../../lib/format";
+import { Banknote, Boxes, Package, Tag } from "lucide-react";
 import toast from "react-hot-toast";
+
+// Tek eşik: 0 = tükendi, 5'in altı = azalıyor.
+const LOW_STOCK_LIMIT = 5;
+
+const getStockState = (
+  stock: number,
+): { label: string; tone: BadgeTone; hint: string } => {
+  if (stock <= 0)
+    return {
+      label: "Out of stock",
+      tone: "danger",
+      hint: "This product can't be sold until it is restocked.",
+    };
+  if (stock < LOW_STOCK_LIMIT)
+    return {
+      label: "Low stock",
+      tone: "warning",
+      hint: "Stock is low. Consider restocking soon.",
+    };
+  return {
+    label: "In stock",
+    tone: "success",
+    hint: "Stock level is sufficient.",
+  };
+};
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const role = useAuth().user?.role;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data, loading, error, refetch } = useQuery(GET_PRODUCT, {
     variables: { id },
@@ -31,10 +62,21 @@ const ProductDetailPage = () => {
 
   const product = data?.getProduct;
 
-  const [deleteProduct] = useMutation(DELETE_PRODUCT, {
-    onCompleted: () => navigate("/products"),
-    onError: (err) => toast.error(`Could not delete product: ${err.message}`),
-  });
+  const [deleteProduct, { loading: deleteLoading }] = useMutation(
+    DELETE_PRODUCT,
+    {
+      onCompleted: (result) => {
+        if (result?.deleteProduct?.success === false) {
+          toast.error(
+            `Could not delete product: ${result.deleteProduct.message}`,
+          );
+          return;
+        }
+        navigate("/products");
+      },
+      onError: (err) => toast.error(`Could not delete product: ${err.message}`),
+    },
+  );
 
   if (loading && !data) return <LoadingState />;
 
@@ -42,187 +84,86 @@ const ProductDetailPage = () => {
 
   if (!product) {
     return (
-      <div className="p-8 max-w-7xl mx-auto">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center space-y-4">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Product not found
-          </h1>
-          <Button icon={ArrowLeft} onClick={() => navigate("/products")}>
-            Back to products
-          </Button>
-        </div>
-      </div>
+      <NotFoundCard
+        title="Product not found"
+        backLabel="Back to products"
+        backUrl="/products"
+      />
     );
   }
 
+  const stock: number = product.stock ?? 0;
+  const stockState = getStockState(stock);
+
   return (
-    <div>
+    <>
       <DetailLayout
-        title={product.name || "Product Detail"}
+        eyebrow="Product"
+        title={product.name || "Product"}
+        badge={
+          <StatusBadge tone={stockState.tone}>{stockState.label}</StatusBadge>
+        }
         backUrl="/products"
-        onEdit={() => setIsModalOpen(true)}
-        onDelete={() => {
-          if (
-            window.confirm("Are you sure you want to delete this product?")
-          )
-            deleteProduct({ variables: { id } });
+        onEdit={
+          can(role, "product", "edit") ? () => setIsModalOpen(true) : undefined
+        }
+        onDelete={
+          can(role, "product", "delete")
+            ? () => setConfirmDelete(true)
+            : undefined
+        }
+        stats={[
+          <StatTile
+            key="price"
+            icon={Banknote}
+            label="Unit price"
+            value={formatMoney(product.price)}
+          />,
+          <StatTile
+            key="stock"
+            icon={Boxes}
+            label="In stock"
+            value={`${stock} ${stock === 1 ? "unit" : "units"}`}
+          />,
+          <StatTile
+            key="category"
+            icon={Tag}
+            label="Category"
+            value={product.category || "General"}
+          />,
+        ]}
+      >
+        <InfoCard title="Details" icon={Package}>
+          <FieldList>
+            <FieldRow label="Name">{product.name}</FieldRow>
+            <FieldRow label="Category">
+              {product.category || "General"}
+            </FieldRow>
+            <FieldRow label="Stock value">
+              {formatMoney((product.price ?? 0) * stock)}
+            </FieldRow>
+            <FieldRow label="Stock status">{stockState.hint}</FieldRow>
+          </FieldList>
+        </InfoCard>
+      </DetailLayout>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this product?"
+        message={
+          <p>
+            <span className="font-semibold text-slate-900">{product.name}</span>{" "}
+            will be deleted.
+          </p>
+        }
+        confirmLabel="Delete"
+        tone="danger"
+        isLoading={deleteLoading}
+        onConfirm={async () => {
+          await deleteProduct({ variables: { id } });
+          setConfirmDelete(false);
         }}
-        // 👤 LEFT SIDE: Product Identity Summary
-        profileSlot={
-          <div className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-slate-100 overflow-hidden text-left sticky top-8">
-            <div className="bg-indigo-600 p-8 text-white space-y-2">
-              <div className="bg-white/20 w-12 h-12 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                <Package size={24} />
-              </div>
-              <h3 className="text-lg font-semibold pt-2">Product</h3>
-            </div>
-            <div className="p-8 space-y-6">
-              <div className="group">
-                <p className="text-xs font-semibold text-slate-500 mb-1 group-hover:text-indigo-500 transition-colors">
-                  Created
-                </p>
-                <p className="font-bold text-slate-700 text-lg">
-                  {product.createdAt
-                    ? new Date(product.createdAt).toLocaleDateString("en-US", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })
-                    : "---"}
-                </p>
-              </div>
-              <div className="group">
-                <p className="text-xs font-semibold text-slate-500 mb-1 group-hover:text-indigo-500 transition-colors">
-                  Category
-                </p>
-                <div className="flex items-center gap-2 text-indigo-500 font-bold text-lg">
-                  <Tag size={16} />
-                  {product.category || "General"}
-                </div>
-              </div>
-              <div className="pt-4 border-t border-slate-50">
-                <div
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-semibold ${
-                    product.stock > 10
-                      ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                      : product.stock > 0
-                        ? "bg-amber-50 text-amber-600 border border-amber-100"
-                        : "bg-rose-50 text-rose-600 border border-rose-100"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full animate-pulse ${product.stock > 10 ? "bg-emerald-500" : "bg-amber-500"}`}
-                  />
-                  {product.stock > 0 ? "In Stock" : "Out of Stock"}
-                </div>
-              </div>
-            </div>
-          </div>
-        }
-        // 📊 TOP STATS: Market & Inventory Metrics
-        statsSlot={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
-              <div>
-                <p className="text-xs font-semibold text-slate-500">
-                  Unit Price
-                </p>
-                <p className="text-3xl font-semibold text-indigo-600 mt-1">
-                  {new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(product.price || 0)}
-                </p>
-              </div>
-              <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-600 group-hover:scale-110 transition-transform">
-                <Banknote size={24} />
-              </div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between text-left group hover:border-indigo-200 transition-all">
-              <div>
-                <p className="text-xs font-semibold text-slate-500">
-                  In stock
-                </p>
-                <p className="text-3xl font-semibold text-slate-800 mt-1">
-                  {product.stock || 0}{" "}
-                  <span className="text-sm font-bold text-slate-500">
-                    Units
-                  </span>
-                </p>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-2xl text-slate-400 group-hover:scale-110 transition-transform">
-                <Layers size={24} />
-              </div>
-            </div>
-          </div>
-        }
-        // 🏥 MAIN CONTENT: The Product File
-        mainContentSlot={
-          <div className="space-y-10 text-left">
-            {/* Product Identity Header */}
-            <div className="bg-white p-10 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-xs font-semibold text-indigo-500 mb-2">
-                Product
-              </p>
-              <h2 className="text-lg font-semibold text-slate-900">
-                {product.name}
-                <span className="text-slate-300 font-light mx-4">/</span>
-                <span className="text-slate-400">
-                  SKU #{product.id?.slice(-6)}
-                </span>
-              </h2>
-            </div>
-
-            {/* Distribution Info */}
-            <div className="bg-white p-10 rounded-2xl border border-slate-100 shadow-sm space-y-8">
-              <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
-                <div className="bg-indigo-600 p-3 rounded-2xl text-white">
-                  <Database size={20} />
-                </div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Details
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-slate-500">
-                    Tenant ID
-                  </p>
-                  <p className="font-bold text-slate-800 text-xl font-mono">
-                    {product.tenantId}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-slate-500">
-                    Category
-                  </p>
-                  <p className="font-bold text-slate-700 text-xl">
-                    {product.category}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Internal Specifications (replacing Clinical Notes) */}
-            <div className="bg-slate-900 p-10 rounded-2xl text-white shadow-2xl shadow-indigo-900/10 space-y-6">
-              <div className="flex items-center gap-4 border-b border-white/10 pb-6">
-                <div className="bg-white/10 p-3 rounded-2xl text-indigo-400">
-                  <ClipboardList size={20} />
-                </div>
-                <h2 className="text-lg font-semibold text-white">
-                  Stock status
-                </h2>
-              </div>
-              <div className="bg-white/5 p-8 rounded-2xl border border-white/5">
-                <p className="text-slate-300 text-lg leading-relaxed italic font-medium">
-                  {product.stock < 5
-                    ? "Stock is low. Consider restocking soon."
-                    : "Stock level is sufficient."}
-                </p>
-              </div>
-            </div>
-          </div>
-        }
+        onCancel={() => setConfirmDelete(false)}
       />
 
       <AddProductModal
@@ -231,7 +172,7 @@ const ProductDetailPage = () => {
         onClose={() => setIsModalOpen(false)}
         initialData={product}
       />
-    </div>
+    </>
   );
 };
 
