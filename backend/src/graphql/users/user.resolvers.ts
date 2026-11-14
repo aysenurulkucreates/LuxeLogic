@@ -2,6 +2,11 @@ import { myContext } from "../../context/context.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { forbidden } from "../../lib/errors.js";
+import {
+  assertLoginAllowed,
+  recordFailedLogin,
+  resetLoginAttempts,
+} from "../../lib/loginLimiter.js";
 
 export const userResolvers = {
   Query: {
@@ -105,7 +110,9 @@ export const userResolvers = {
         user: createdUser,
       };
     },
-    signin: async (_: any, { credentials }: any, { prisma }: myContext) => {
+    signin: async (_: any, { credentials }: any, { prisma, ip }: myContext) => {
+      await assertLoginAllowed(credentials.email, ip);
+
       const foundUser = await prisma.user.findUnique({
         where: {
           email: credentials.email,
@@ -113,6 +120,7 @@ export const userResolvers = {
         include: { staff: true },
       });
       if (!foundUser) {
+        await recordFailedLogin(credentials.email, ip);
         throw new Error("Incorrect email or password!");
       }
 
@@ -121,8 +129,11 @@ export const userResolvers = {
         foundUser.password,
       );
       if (!isValid) {
+        await recordFailedLogin(credentials.email, ip);
         throw new Error("Incorrect email or password!");
       }
+
+      await resetLoginAttempts(credentials.email, ip);
 
       if (foundUser.staff && !foundUser.staff.isActive)
         throw forbidden(

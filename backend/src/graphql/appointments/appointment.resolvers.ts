@@ -95,7 +95,6 @@ export const appointmentResolvers = {
       return appointment;
     },
   },
-
   Mutation: {
     // appointments
     createAppointment: async (

@@ -22,6 +22,7 @@ export interface myContext {
   prisma: typeof prisma;
   db: Db | null; // giriş yoksa null (fail closed)
   io: Server;
+  ip: string; // rate-limit için
 }
 
 // Eski ad: başka bir dosya bunu kullanıyorsa kırılmasın
@@ -55,7 +56,7 @@ export const createContext = async ({
   req,
   io,
 }: {
-  req: { headers: { authorization?: string } }; // sadece kullandığımız kısım
+  req: { headers: { authorization?: string }; ip?: string }; // sadece kullandığımız kısım
   io: Server;
 }): Promise<myContext> => {
   const auth = req.headers.authorization || "";
@@ -64,7 +65,7 @@ export const createContext = async ({
   const user = await getUserFromToken(token);
   const db = createDb(user);
 
-  return { user, prisma, db, io };
+  return { user, prisma, db, io, ip: req.ip ?? "unknown" };
 };
 
 export const createDb = (
