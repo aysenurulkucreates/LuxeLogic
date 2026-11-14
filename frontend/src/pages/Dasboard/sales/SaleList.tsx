@@ -11,6 +11,9 @@ import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import toast from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+import { can } from "../../../config/permissions";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 import { useSocket } from "../../../hooks/useSocket";
 
 interface Product {
@@ -56,7 +59,10 @@ const SaleList = () => {
     variables: { searchTerm: debouncedSearchTerm },
   });
 
-  const [deleteSale] = useMutation(DELETE_SALE, {
+  const canDelete = can(useAuth().user?.role, "sale", "delete");
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteSale, { loading: deleteLoading }] = useMutation(DELETE_SALE, {
     refetchQueries: [
       {
         query: GET_MY_SALES,
@@ -119,14 +125,13 @@ const SaleList = () => {
     };
   }, [socket, client, debouncedSearchTerm]);
 
-  const handleDelete = async (id: string) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to cancel this sale? The stock will be restored.",
-    );
-    // Hatalar deleteSale'in onError'ında toast ile gösteriliyor
-    if (confirmDelete) {
-      await deleteSale({ variables: { id } });
-    }
+  // Silme onayı ConfirmDialog ile alınır
+  const handleDelete = (id: string) => setDeleteId(id);
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    await deleteSale({ variables: { id: deleteId } });
+    setDeleteId(null);
   };
 
   const handleClose = () => setIsModalOpen(false);
@@ -169,7 +174,9 @@ const SaleList = () => {
                   <th className="px-10 py-8">Product</th>
                   <th className="px-10 py-8">Quantity</th>
                   <th className="px-10 py-8">Total</th>
-                  <th className="px-10 py-8 text-right">Actions</th>
+                  {canDelete && (
+                    <th className="px-10 py-8 text-right">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -213,14 +220,16 @@ const SaleList = () => {
                       ${sale.totalPrice.toLocaleString()}
                     </td>
 
-                    <td className="px-10 py-8 text-right">
-                      <button
-                        onClick={() => handleDelete(sale.id)}
-                        className="p-4 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </td>
+                    {canDelete && (
+                      <td className="px-10 py-8 text-right">
+                        <button
+                          onClick={() => handleDelete(sale.id)}
+                          className="p-4 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -233,6 +242,17 @@ const SaleList = () => {
           <EmptyState plural="sales" singular="sale" icon={Filter} />
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Cancel this sale?"
+        message={<p>The sale will be deleted and its stock restored.</p>}
+        confirmLabel="Delete sale"
+        tone="danger"
+        isLoading={deleteLoading}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
+      />
 
       <AddSaleModal isOpen={isModalOpen} onClose={handleClose} />
     </div>

@@ -13,6 +13,9 @@ import { Link } from "react-router-dom";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
 import toast from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+import { can } from "../../../config/permissions";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 
 interface Customer {
   id: string;
@@ -30,6 +33,9 @@ const CustomerList: React.FC = () => {
   );
 
   const client = useApolloClient();
+  const role = useAuth().user?.role;
+  const canEdit = can(role, "customer", "edit");
+  const canDelete = can(role, "customer", "delete");
   const socket = useSocket();
   //  Telsizden gelen kilitli hasta ID'lerini tutan radar hafızamız
   const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
@@ -52,11 +58,16 @@ const CustomerList: React.FC = () => {
   const data = currentData ?? previousData;
   const isRefreshing = loading && !!data;
 
-  const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
-    refetchQueries: [{ query: GET_MY_CUSTOMERS }],
-    onCompleted: () => toast.success("Customer deleted."),
-    onError: (err) => toast.error(`Could not delete customer: ${err.message}`),
-  });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteCustomer, { loading: deleteLoading }] = useMutation(
+    DELETE_CUSTOMER,
+    {
+      refetchQueries: [{ query: GET_MY_CUSTOMERS }],
+      onCompleted: () => toast.success("Customer deleted."),
+      onError: (err) =>
+        toast.error(`Could not delete customer: ${err.message}`),
+    },
+  );
 
   useEffect(() => {
     // Olay sadece { id } taşıyor: güncel listeyi API'den yeniden çekiyoruz
@@ -120,10 +131,13 @@ const CustomerList: React.FC = () => {
     setSelectedCustomer(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this customer?")) {
-      await deleteCustomer({ variables: { id } });
-    }
+  // Silme onayı ConfirmDialog ile alınır
+  const handleDelete = (id: string) => setDeleteId(id);
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    await deleteCustomer({ variables: { id: deleteId } });
+    setDeleteId(null);
   };
 
   if (error) return <ErrorState error={error} onRetry={refetch} />;
@@ -234,29 +248,33 @@ const CustomerList: React.FC = () => {
                   <div
                     className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
-                    <button
-                      onClick={() => !locked && handleEdit(customer)}
-                      disabled={locked}
-                      className={`p-3.5 shadow-sm border rounded-lg transition-all ${
-                        locked
-                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200"
-                      }`}
-                    >
-                      {locked ? <Lock size={18} /> : <Pencil size={18} />}
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => !locked && handleEdit(customer)}
+                        disabled={locked}
+                        className={`p-3.5 shadow-sm border rounded-lg transition-all ${
+                          locked
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200"
+                        }`}
+                      >
+                        {locked ? <Lock size={18} /> : <Pencil size={18} />}
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => !locked && handleDelete(customer.id)}
-                      disabled={locked}
-                      className={`p-3.5 shadow-sm border rounded-lg transition-all ${
-                        locked
-                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-200"
-                      }`}
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => !locked && handleDelete(customer.id)}
+                        disabled={locked}
+                        className={`p-3.5 shadow-sm border rounded-lg transition-all ${
+                          locked
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-200"
+                        }`}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -266,6 +284,17 @@ const CustomerList: React.FC = () => {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete this customer?"
+        message={<p>This customer will be deleted.</p>}
+        confirmLabel="Delete"
+        tone="danger"
+        isLoading={deleteLoading}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
+      />
 
       <AddCustomerModal
         key={selectedCustomer?.id || "new-customer"}

@@ -20,6 +20,9 @@ import Button from "../../../components/ui/Button";
 import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import toast from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+import { can } from "../../../config/permissions";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
 
@@ -43,6 +46,9 @@ const StaffList: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
 
   const client = useApolloClient();
+  const role = useAuth().user?.role;
+  const canEdit = can(role, "staff", "edit");
+  const canDelete = can(role, "staff", "delete");
 
   const socket = useSocket();
   const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
@@ -67,10 +73,10 @@ const StaffList: React.FC = () => {
   const data = currentData ?? previousData;
   const isRefreshing = loading && !!data;
 
-  const [deleteStaff] = useMutation(DELETE_STAFF, {
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteStaff, { loading: deleteLoading }] = useMutation(DELETE_STAFF, {
     refetchQueries: [{ query: GET_MY_STAFF }],
-    onCompleted: () =>
-      toast.success("Staff member deleted."),
+    onCompleted: () => toast.success("Staff member deleted."),
     onError: (err) => toast.error(`Could not delete staff: ${err.message}`),
   });
 
@@ -139,14 +145,13 @@ const StaffList: React.FC = () => {
     setSelectedStaff(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete this staff member?",
-      )
-    ) {
-      await deleteStaff({ variables: { id } });
-    }
+  // Silme onayı ConfirmDialog ile alınır
+  const handleDelete = (id: string) => setDeleteId(id);
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    await deleteStaff({ variables: { id: deleteId } });
+    setDeleteId(null);
   };
 
   // 🚨 Rol İsimlerini Ekrana Güzel Basmak İçin Minik Bir Sözlük (Helper)
@@ -366,28 +371,32 @@ const StaffList: React.FC = () => {
                   <div
                     className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
-                    <button
-                      onClick={() => !locked && handleEdit(staff)}
-                      disabled={locked}
-                      className={`p-4 shadow-sm border rounded-lg transition-all ${
-                        locked
-                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
-                      }`}
-                    >
-                      {locked ? <Lock size={20} /> : <Pencil size={20} />}
-                    </button>
-                    <button
-                      onClick={() => !locked && handleDelete(staff.id)}
-                      disabled={locked}
-                      className={`p-4 shadow-sm border rounded-lg transition-all ${
-                        locked
-                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
-                      }`}
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => !locked && handleEdit(staff)}
+                        disabled={locked}
+                        className={`p-4 shadow-sm border rounded-lg transition-all ${
+                          locked
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
+                        }`}
+                      >
+                        {locked ? <Lock size={20} /> : <Pencil size={20} />}
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => !locked && handleDelete(staff.id)}
+                        disabled={locked}
+                        className={`p-4 shadow-sm border rounded-lg transition-all ${
+                          locked
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
+                        }`}
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -401,6 +410,17 @@ const StaffList: React.FC = () => {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete this staff member?"
+        message={<p>This staff member will be deactivated.</p>}
+        confirmLabel="Delete"
+        tone="danger"
+        isLoading={deleteLoading}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
+      />
 
       <AddStaffModal
         key={selectedStaff?.id || "new"}

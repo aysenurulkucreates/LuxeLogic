@@ -20,6 +20,9 @@ import SearchInput from "../../../components/ui/SearchInput";
 import EmptyState from "../../../components/ui/EmptyState";
 import { DELETE_PRODUCT } from "../../../graphql/mutations/products";
 import toast from "react-hot-toast";
+import { useAuth } from "../../../hooks/useAuth";
+import { can } from "../../../config/permissions";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRecordLock } from "../../../hooks/useRecordLock";
 
@@ -38,6 +41,13 @@ const ProductList: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const client = useApolloClient();
+  const role = useAuth().user?.role;
+  const canEdit = can(role, "product", "edit");
+  const canDelete = can(role, "product", "delete");
+  const canCreate = can(role, "product", "create");
+  // Rolün hiç aksiyonu yoksa Actions sütunu tamamen gizlenir
+  const hasActions = canEdit || canDelete;
+  const gridCols = hasActions ? "grid-cols-5" : "grid-cols-4";
 
   const socket = useSocket();
   const { isLocked, lockRecord, unlockRecord } = useRecordLock(socket);
@@ -62,11 +72,15 @@ const ProductList: React.FC = () => {
   const data = currentData ?? previousData;
   const isRefreshing = loading && !!data;
 
-  const [deleteProduct] = useMutation(DELETE_PRODUCT, {
-    refetchQueries: [{ query: GET_MY_PRODUCTS }],
-    onCompleted: () => toast.success("Product deleted."),
-    onError: (err) => toast.error(`Could not delete product: ${err.message}`),
-  });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteProduct, { loading: deleteLoading }] = useMutation(
+    DELETE_PRODUCT,
+    {
+      refetchQueries: [{ query: GET_MY_PRODUCTS }],
+      onCompleted: () => toast.success("Product deleted."),
+      onError: (err) => toast.error(`Could not delete product: ${err.message}`),
+    },
+  );
 
   useEffect(() => {
     const handleCreated = (newProduct: Product) => {
@@ -148,10 +162,13 @@ const ProductList: React.FC = () => {
     setSelectedProduct(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      await deleteProduct({ variables: { id } });
-    }
+  // Silme onayı ConfirmDialog ile alınır
+  const handleDelete = (id: string) => setDeleteId(id);
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    await deleteProduct({ variables: { id: deleteId } });
+    setDeleteId(null);
   };
 
   if (error) return <ErrorState error={error} onRetry={refetch} />;
@@ -172,19 +189,23 @@ const ProductList: React.FC = () => {
             onChange={setSearchTerm}
             placeholder="Search products..."
           />
-          <Button icon={PackagePlus} onClick={() => setIsModalOpen(true)}>
-            Add product
-          </Button>
+          {canCreate && (
+            <Button icon={PackagePlus} onClick={() => setIsModalOpen(true)}>
+              Add product
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden">
-        <div className="grid grid-cols-5 bg-slate-50/50 px-10 py-6 border-b border-slate-100 text-xs font-semibold text-slate-500">
+        <div
+          className={`grid ${gridCols} bg-slate-50/50 px-10 py-6 border-b border-slate-100 text-xs font-semibold text-slate-500`}
+        >
           <span className="col-span-2 text-left">Product</span>
           <span className="text-left">Category</span>
           <span className="text-left">Price & stock</span>
-          <span className="text-right">Actions</span>
+          {hasActions && <span className="text-right">Actions</span>}
         </div>
 
         <div
@@ -201,7 +222,7 @@ const ProductList: React.FC = () => {
               return (
                 <div
                   key={product.id}
-                  className={`grid grid-cols-5 px-10 py-8 items-center transition-all group ${
+                  className={`grid ${gridCols} px-10 py-8 items-center transition-all group ${
                     locked
                       ? "bg-slate-50/50 opacity-60 grayscale-20 pointer-events-none"
                       : "hover:bg-indigo-50/30 bg-white"
@@ -273,32 +294,38 @@ const ProductList: React.FC = () => {
                   </div>
 
                   {/* 🚨 KİLİT AKSİYONLARI */}
-                  <div
-                    className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                  >
-                    <button
-                      onClick={() => !locked && handleEdit(product)}
-                      disabled={locked}
-                      className={`p-3 shadow-sm border rounded-lg transition-all ${
-                        locked
-                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
-                      }`}
+                  {hasActions && (
+                    <div
+                      className={`flex justify-end gap-3 transition-all duration-300 ${locked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                     >
-                      {locked ? <Lock size={20} /> : <Pencil size={20} />}
-                    </button>
-                    <button
-                      onClick={() => !locked && handleDelete(product.id)}
-                      disabled={locked}
-                      className={`p-3 shadow-sm border rounded-lg transition-all ${
-                        locked
-                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
-                      }`}
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
+                      {canEdit && (
+                        <button
+                          onClick={() => !locked && handleEdit(product)}
+                          disabled={locked}
+                          className={`p-3 shadow-sm border rounded-lg transition-all ${
+                            locked
+                              ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                              : "bg-white border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100"
+                          }`}
+                        >
+                          {locked ? <Lock size={20} /> : <Pencil size={20} />}
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => !locked && handleDelete(product.id)}
+                          disabled={locked}
+                          className={`p-3 shadow-sm border rounded-lg transition-all ${
+                            locked
+                              ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                              : "bg-white border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100"
+                          }`}
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -311,6 +338,17 @@ const ProductList: React.FC = () => {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete this product?"
+        message={<p>This product will be deleted.</p>}
+        confirmLabel="Delete"
+        tone="danger"
+        isLoading={deleteLoading}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
+      />
 
       <AddProductModal
         key={selectedProduct?.id || "new"}
