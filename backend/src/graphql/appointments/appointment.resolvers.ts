@@ -1,3 +1,4 @@
+import { GraphQLError } from "graphql";
 import { validate } from "../../validation/validate.js";
 import {
   createAppointmentSchema,
@@ -207,7 +208,7 @@ export const appointmentResolvers = {
       try {
         const existing = await db.appointment.findFirst({
           where: { id },
-          select: { id: true, tenantId: true },
+          select: { id: true, tenantId: true, status: true },
         });
 
         if (!existing)
@@ -216,6 +217,10 @@ export const appointmentResolvers = {
             message: "Appointment not found or access denied.",
             deletedId: null,
           };
+
+        // Tamamlanmış randevu ödenmiş, kapalı bir kayıttır: kimse silemez.
+        if (existing.status === "COMPLETED")
+          throw badInput("A completed appointment can't be deleted.");
 
         await db.appointment.delete({ where: { id } });
 
@@ -227,6 +232,8 @@ export const appointmentResolvers = {
           deletedId: id,
         };
       } catch (err) {
+        // Kendi fırlattığımız kural hataları istemciye olduğu gibi gitsin.
+        if (err instanceof GraphQLError) throw err;
         console.error("Error deleting appointment:", err);
         return {
           success: false,
@@ -264,6 +271,11 @@ export const appointmentResolvers = {
 
       if (!currentApp)
         throw forbidden("Appointment not found or access denied.");
+
+      if (currentApp.status === "COMPLETED" && me.role !== "TENANT_ADMIN")
+        throw forbidden(
+          "Only a clinic admin can edit a completed appointment.",
+        );
 
       if (
         me.role === "DOCTOR" &&
