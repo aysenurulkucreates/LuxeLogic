@@ -39,7 +39,7 @@ export const createAppointmentSchema = z
 
 // Güncellemede her alan opsiyonel, ama en az biri gelmeli
 export const updateAppointmentSchema = z
-  .object({ ...appointmentFields, status: statusEnum })
+  .object(appointmentFields)
   .partial()
   .refine(
     (data) => Object.keys(data).length > 0,

@@ -6,6 +6,7 @@ import {
 import { assertDb, requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
 import { badInput, forbidden } from "../../lib/errors.js";
+import { findAppointmentConflict } from "../../lib/appointmentConflict.js";
 
 export const appointmentResolvers = {
   Query: {
@@ -305,21 +306,17 @@ export const appointmentResolvers = {
         throw badInput("End time must be after start time.");
 
       // çakışma kontrolü
-      if (startTime || endTime || staffId || customerId) {
-        const checkStaff = staffId ?? currentApp.staffId;
-        const checkCustomer = customerId ?? currentApp.customerId;
-
-        const conflict = await db.appointment.findFirst({
-          where: {
-            tenantId: targetTenantId,
-            id: { not: id },
-            status: { not: "CANCELLED" },
-            AND: [
-              { startTime: { lt: checkEnd } },
-              { endTime: { gt: checkStart } },
-            ],
-            OR: [{ staffId: checkStaff }, { customerId: checkCustomer }],
-          },
+      if (
+        currentApp.status !== "CANCELLED" &&
+        (startTime || endTime || staffId || customerId)
+      ) {
+        const conflict = await findAppointmentConflict(db, {
+          tenantId: currentApp.tenantId,
+          excludeId: id,
+          staffId: staffId ?? currentApp.staffId,
+          customerId: customerId ?? currentApp.customerId,
+          start: checkStart,
+          end: checkEnd,
         });
 
         if (conflict)
@@ -360,6 +357,27 @@ export const appointmentResolvers = {
 
       if (!appointment)
         throw forbidden("Appointment not found or access denied.");
+
+      // tamamlanmış randevu kapanmış bir kayıt: duurmu değiştirmez.
+      if (appointment.status === "COMPLETED")
+        throw badInput("A completed appointment can't be changed.");
+
+      // iptalden geri dönüyorsa, hala saat boş mu?
+      if (appointment.status === "CANCELLED" && status !== "CANCELLED") {
+        const conflict = await findAppointmentConflict(db, {
+          tenantId: appointment.tenantId,
+          excludeId: appointment.id,
+          staffId: appointment.staffId,
+          customerId: appointment.customerId,
+          start: appointment.startTime,
+          end: appointment.endTime,
+        });
+
+        if (conflict)
+          throw badInput(
+            "This time slot is no longer free, so the appointment can't be reopened.",
+          );
+      }
 
       const updatedAppointment = await db.appointment.update({
         where: { id },

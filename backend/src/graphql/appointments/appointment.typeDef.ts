@@ -65,7 +65,6 @@ input UpdateAppointmentInput {
 
   price: Float
   notes: String
-  status: AppointmentStatus
 }
 
 `;

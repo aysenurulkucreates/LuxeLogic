@@ -191,10 +191,21 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     };
 
     if (initialData?.id) {
+      // Düzenlemede sadece izin verilen alanlar gider; durum listedeki butonlardan değişir
+      const updateInput = {
+        startTime: formattedInput.startTime,
+        endTime: formattedInput.endTime,
+        customerId: formattedInput.customerId,
+        staffId: formattedInput.staffId,
+        tenantId: formattedInput.tenantId,
+        price: formattedInput.price,
+        notes: formattedInput.notes,
+      };
+
       await updateAppointment({
         variables: {
           id: initialData.id,
-          input: formattedInput,
+          input: updateInput,
         },
       });
     } else {
