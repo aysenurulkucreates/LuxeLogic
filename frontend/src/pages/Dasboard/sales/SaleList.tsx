@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Trash2, Calendar, Filter, Plus } from "lucide-react";
 import { GET_MY_SALES } from "../../../graphql/queries/auth";
 import { DELETE_SALE } from "../../../graphql/mutations/sales";
-import { useQuery, useMutation, useApolloClient } from "@apollo/client";
+import { useQuery, useMutation } from "@apollo/client";
 import AddSaleModal from "../../../components/shared/AddSaleModal";
 import ErrorState from "../../../components/ui/ErrorState";
 import LoadingState from "../../../components/ui/LoadingState";
@@ -46,8 +46,6 @@ const SaleList = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const client = useApolloClient();
-
   const socket = useSocket();
 
   useEffect(() => {
@@ -77,43 +75,16 @@ const SaleList = () => {
     },
   });
 
+  // Socket sadece { id } taşıyor; listeyi sunucudan yeniden çekiyoruz
   useEffect(() => {
-    const handleCreated = (newSale: Sale) => {
-      toast.success(
-        `New sale: ${newSale?.quantity}x ${newSale?.product?.name} for ${newSale?.customer?.name || "Guest"}`,
-      );
-      client.cache.updateQuery(
-        {
-          query: GET_MY_SALES,
-          variables: { searchTerm: debouncedSearchTerm },
-        },
-        (existingData) => {
-          if (!existingData) return null;
-
-          return {
-            mySales: [...existingData.mySales, newSale],
-          };
-        },
-      );
+    const handleCreated = () => {
+      toast.success("A new sale was added.");
+      refetch();
     };
 
-    const handleDeleted = (deletedId: string) => {
+    const handleDeleted = () => {
       toast.error("A sale was cancelled.");
-      client.cache.updateQuery(
-        {
-          query: GET_MY_SALES,
-          variables: { searchTerm: debouncedSearchTerm },
-        },
-        (existingData) => {
-          if (!existingData) return null;
-
-          return {
-            mySales: existingData.mySales.filter(
-              (sale: Sale) => sale.id !== deletedId,
-            ),
-          };
-        },
-      );
+      refetch();
     };
 
     socket.on("sale_created", handleCreated);
@@ -123,7 +94,7 @@ const SaleList = () => {
       socket.off("sale_created", handleCreated);
       socket.off("sale_deleted", handleDeleted);
     };
-  }, [socket, client, debouncedSearchTerm]);
+  }, [socket, refetch]);
 
   // Silme onayı ConfirmDialog ile alınır
   const handleDelete = (id: string) => setDeleteId(id);

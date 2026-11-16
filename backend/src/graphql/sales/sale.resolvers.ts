@@ -1,6 +1,8 @@
 import { myContext } from "../../context/context.js";
 import { assertDb, requireRole } from "../../lib/auth.js";
 import { badInput, forbidden } from "../../lib/errors.js";
+import { createSaleSchema } from "../../validation/sale.schema.js";
+import { validate } from "../../validation/validate.js";
 
 export const saleResolvers = {
   Query: {
@@ -79,7 +81,10 @@ export const saleResolvers = {
       ]);
       assertDb(db);
 
-      const { quantity, totalPrice, customerId, productId } = input;
+      const { quantity, customerId, productId, tenantId } = validate(
+        createSaleSchema,
+        input,
+      );
 
       const targetTenantId =
         me.role === "SUPER_ADMIN" ? input.tenantId : me.tenantId;
@@ -92,7 +97,7 @@ export const saleResolvers = {
           where: { id: productId, tenantId: targetTenantId },
         });
 
-        if (!product) throw forbidden("product not found or access denied.");
+        if (!product) throw forbidden("Product not found or access denied.");
 
         if (product.stock < quantity)
           throw badInput(
@@ -111,8 +116,26 @@ export const saleResolvers = {
 
           if (!customer) throw forbidden("Customer not found or access denied");
         }
+
+        const totalPrice = product.price.mul(quantity);
+        if (totalPrice.gt(99_999_999))
+          throw badInput("Sale total is too large.");
+
+        const { count } = await tx.product.updateMany({
+          where: {
+            id: product.id,
+            tenantId: targetTenantId,
+            stock: { gte: quantity },
+          },
+          data: { stock: { decrement: quantity } },
+        });
+
+        if (count === 0)
+          throw badInput(
+            `Insufficient stock! Only ${product.stock} left in storage.`,
+          );
         // satışı oluştur.
-        const sale = await tx.sale.create({
+        return tx.sale.create({
           data: {
             quantity,
             totalPrice,
@@ -122,15 +145,9 @@ export const saleResolvers = {
           },
           include: { product: true, customer: true, tenant: true },
         });
-
-        // stoktan düş- ürün A adımında bu kliniğe ait olarak doğrulandı.
-        await tx.product.update({
-          where: { id: productId },
-          data: { stock: { decrement: quantity } },
-        });
-        return sale;
       });
-      io.to(targetTenantId).emit("sale_created", newSale);
+
+      io.to(targetTenantId).emit("sale_created", { id: newSale.id });
 
       return newSale;
     },
@@ -158,7 +175,7 @@ export const saleResolvers = {
           data: { stock: { increment: sale.quantity } },
         });
       });
-      io.to(sale.tenantId).emit("sale_deleted", sale);
+      io.to(sale.tenantId).emit("sale_deleted", { id: sale.id });
 
       return {
         id: sale.id,
