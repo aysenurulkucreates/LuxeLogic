@@ -29,7 +29,6 @@ interface AddSaleModalProps {
 
 interface SaleFormData {
   quantity: number;
-  totalPrice: number;
   customerId: string;
   productId: string;
 }
@@ -47,7 +46,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
     GET_MY_PRODUCTS,
     {
       variables: { searchTerm: debouncedSearchTerm },
-      skip: !isOpen, // Modal kapalıyken boşuna enerji harcamasın!
+      skip: !isOpen,
     },
   );
 
@@ -59,12 +58,21 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
     },
   );
 
+  // totalPrice artık state'te yok
   const [formData, setFormData] = useState<SaleFormData>({
     quantity: 1,
-    totalPrice: 0,
     customerId: "",
     productId: "",
   });
+
+  // Toplam her render'da seçili ürün × miktar'dan hesaplanıyor (sadece gösterim için;
+  // gerçek tutarı sunucu hesaplıyor)
+  const selectedProduct = productData?.myProducts?.find(
+    (p: Product) => p.id === formData.productId,
+  );
+  const total = selectedProduct
+    ? Number(selectedProduct.price) * formData.quantity
+    : 0;
 
   const [createSale, { loading: createLoading }] = useMutation(CREATE_SALE, {
     refetchQueries: [{ query: GET_MY_SALES }],
@@ -74,18 +82,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
     },
     onError: (err) => toast.error(`Could not complete sale: ${err.message}`),
   });
-
-  const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = e.target.value;
-    const product = productData?.myProducts?.find(
-      (p: Product) => p.id === selectedId,
-    );
-    setFormData((prev) => ({
-      ...prev,
-      productId: selectedId,
-      totalPrice: product ? product.price * prev.quantity : 0,
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,9 +93,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
     await createSale({
       variables: {
         input: {
-          ...formData,
-          quantity: Number(formData.quantity),
-          totalPrice: Number(formData.totalPrice),
+          productId: formData.productId,
+          customerId: formData.customerId,
+          quantity: Number(formData.quantity), // totalPrice gönderilmiyor
         },
       },
     });
@@ -151,11 +147,12 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
                 name="productId"
                 className="w-full p-4 bg-slate-50 border-none rounded-lg font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all"
                 value={formData.productId}
-                onChange={handleProductChange}
+                onChange={(e) =>
+                  setFormData({ ...formData, productId: e.target.value })
+                }
                 required
               >
                 <option value="">Choose product...</option>
-
                 {productData?.myProducts?.map((p: Product) => (
                   <option key={p.id} value={p.id}>
                     {p.name} (Stock: {p.stock})
@@ -188,7 +185,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* 📊 QUANTITY & PRICE (Side by Side) */}
+          {/* 📊 QUANTITY & TOTAL (Side by Side) */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-500 ml-1 flex items-center gap-2">
@@ -198,7 +195,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
                 type="number"
                 min="1"
                 className="w-full p-4 bg-slate-50 border-none rounded-lg font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all"
-                // 💎 NaN Koruma Dikişi: Değer NaN ise boş göster
                 value={isNaN(formData.quantity) ? "" : formData.quantity}
                 onChange={(e) => {
                   const val = parseInt(e.target.value);
@@ -206,24 +202,15 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose }) => {
                 }}
               />
             </div>
+
+            {/* Değiştirilemeyen toplam: ürünün fiyatı × miktar */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-emerald-600 ml-1 flex items-center gap-2">
-                <Banknote size={14} /> Price
+                <Banknote size={14} /> Total
               </label>
-              <input
-                type="number"
-                step="0.01"
-                className="w-full p-4 bg-emerald-50 border-none rounded-lg font-semibold text-emerald-700 focus:ring-2 focus:ring-emerald-500 transition-all"
-                // 💎 NaN Koruma Dikişi
-                value={isNaN(formData.totalPrice) ? "" : formData.totalPrice}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  setFormData({
-                    ...formData,
-                    totalPrice: isNaN(val) ? 0 : val,
-                  });
-                }}
-              />
+              <div className="w-full p-4 bg-emerald-50 rounded-lg font-semibold text-emerald-700">
+                {selectedProduct ? `$${total.toFixed(2)}` : "—"}
+              </div>
             </div>
           </div>
 

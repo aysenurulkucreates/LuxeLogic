@@ -24,7 +24,6 @@ export const saleTypeDef = `#graphql
 
 input CreateSaleInput {
   quantity: Int!
-  totalPrice: Float!
 
   customerId: ID
   productId: ID!
