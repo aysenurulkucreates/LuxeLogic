@@ -1,12 +1,14 @@
 import { myContext } from "../../context/context.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { forbidden } from "../../lib/errors.js";
+import { badInput, forbidden } from "../../lib/errors.js";
 import {
   assertLoginAllowed,
   recordFailedLogin,
   resetLoginAttempts,
 } from "../../lib/loginLimiter.js";
+import { validate } from "../../validation/validate.js";
+import { signupSchema } from "../../validation/user.schema.js";
 
 export const userResolvers = {
   Query: {
@@ -62,36 +64,45 @@ export const userResolvers = {
     },
   },
   Mutation: {
-    signup: async (
-      _: any,
-      { credentials, tenantName, slug }: any,
-      { prisma }: myContext,
-    ) => {
+    signup: async (_: any, args: unknown, { prisma }: myContext) => {
+      const { credentials, tenantName, slug } = validate(signupSchema, args);
+
       const existingUser = await prisma.user.findUnique({
         where: { email: credentials.email },
       });
+      if (existingUser) throw badInput("This email is already registered.");
 
-      if (existingUser) {
-        throw new Error("This email is already registered");
-      }
+      const existingTenant = await prisma.tenant.findUnique({
+        where: { slug },
+      });
+      if (existingTenant) throw badInput("This clinic URL is already taken.");
+
       const hashedPsw = await bcrypt.hash(credentials.password, 10);
 
-      const newTenant = await prisma.tenant.create({
-        data: {
-          name: tenantName,
-          slug: slug,
-          users: {
-            create: {
-              email: credentials.email,
-              password: hashedPsw,
-              role: "TENANT_ADMIN",
+      let newTenant;
+      try {
+        newTenant = await prisma.tenant.create({
+          data: {
+            name: tenantName,
+            slug,
+            users: {
+              create: {
+                email: credentials.email,
+                password: hashedPsw,
+                role: "TENANT_ADMIN",
+              },
             },
           },
-        },
-        include: {
-          users: true,
-        },
-      });
+          include: { users: true },
+        });
+      } catch (error) {
+        // Two signups at the same moment can both pass the checks above
+        if ((error as { code?: string }).code === "P2002") {
+          throw badInput("This email or clinic URL is already in use.");
+        }
+        console.error("Signup error:", error);
+        throw new Error("Signup failed. Please try again.");
+      }
 
       const createdUser = newTenant.users[0];
 
@@ -105,10 +116,7 @@ export const userResolvers = {
         { expiresIn: "3d" },
       );
 
-      return {
-        token,
-        user: createdUser,
-      };
+      return { token, user: createdUser };
     },
     signin: async (_: any, { credentials }: any, { prisma, ip }: myContext) => {
       await assertLoginAllowed(credentials.email, ip);
