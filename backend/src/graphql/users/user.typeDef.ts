@@ -31,6 +31,7 @@ type AuthPayload {
 input UpdateUserInput {
  email: String 
  password: String
+ currentPassword: String!
 }
 
 input CredentialsInput {

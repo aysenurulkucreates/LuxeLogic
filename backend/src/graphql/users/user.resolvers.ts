@@ -8,7 +8,11 @@ import {
   resetLoginAttempts,
 } from "../../lib/loginLimiter.js";
 import { validate } from "../../validation/validate.js";
-import { signupSchema } from "../../validation/user.schema.js";
+import {
+  signupSchema,
+  updateUserSchema,
+} from "../../validation/user.schema.js";
+import { requireAuth } from "../../lib/auth.js";
 
 export const userResolvers = {
   Query: {
@@ -164,32 +168,40 @@ export const userResolvers = {
       return { token, user: foundUser };
     },
     updateUser: async (_: any, { input }: any, { prisma, user }: myContext) => {
-      if (!user) throw new Error("You must login first.");
+      const me = requireAuth(user);
+      const { email, password, currentPassword } = validate(
+        updateUserSchema,
+        input,
+      );
 
-      const { email, password } = input;
-      const updateData: any = {};
+      const isValid = await bcrypt.compare(currentPassword, me.password);
+      if (!isValid) throw badInput("Current password is incorrect.");
 
-      if (email !== undefined) updateData.email = email;
-
-      if (password !== undefined && password.trim().length > 0) {
-        updateData.password = await bcrypt.hash(password, 10);
-      }
-
-      if (Object.keys(updateData).length === 0) {
-        throw new Error("No data provided for update.");
-      }
+      const hashedPassword = password
+        ? await bcrypt.hash(password, 10)
+        : undefined;
 
       try {
-        return await prisma.user.update({
-          where: { id: user.id },
-          data: updateData,
+        return await prisma.$transaction(async (tx) => {
+          const updated = await tx.user.update({
+            where: { id: me.id },
+            data: { email, password: hashedPassword },
+          });
+
+          if (email !== undefined) {
+            await tx.staff.updateMany({
+              where: { userId: me.id },
+              data: { email },
+            });
+          }
+          return updated;
         });
-      } catch (error: any) {
-        if (error.code === "P2002") {
-          throw new Error("This email address is already in use.");
+      } catch (error) {
+        if ((error as { code?: string }).code === "P2002") {
+          throw badInput("This email address is already in use.");
         }
         console.error("User update error:", error);
-        throw new Error("Update failed.");
+        throw new Error("Update failed. Please try again later.");
       }
     },
   },
