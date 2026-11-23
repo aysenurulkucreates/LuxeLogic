@@ -7,7 +7,10 @@ import {
 import { assertDb, requireRole } from "../../lib/auth.js";
 import { myContext } from "../../context/context.js";
 import { badInput, forbidden } from "../../lib/errors.js";
-import { findAppointmentConflict } from "../../lib/appointmentConflict.js";
+import {
+  findAppointmentConflict,
+  getOverlapTarget,
+} from "../../lib/appointmentConflict.js";
 
 export const appointmentResolvers = {
   Query: {
@@ -170,26 +173,45 @@ export const appointmentResolvers = {
           existingAppointment.staffId === staffId
             ? "The staff member"
             : "The customer";
-        throw badInput(`${who} already has an appointment at this time`);
+        throw badInput(`${who} already has an appointment at this time.`);
       }
 
-      const newApp = await db.appointment.create({
-        data: {
-          startTime,
-          endTime,
-          price,
-          status,
-          notes,
-          tenant: { connect: { id: targetTenantId } },
-          customer: { connect: { id: customerId } },
-          staff: { connect: { id: staffId } },
-        },
-        include: {
-          staff: true,
-          customer: true,
-          tenant: true,
-        },
-      });
+      let newApp;
+
+      try {
+        newApp = await db.appointment.create({
+          data: {
+            startTime,
+            endTime,
+            price,
+            status,
+            notes,
+            tenant: { connect: { id: targetTenantId } },
+            customer: { connect: { id: customerId } },
+            staff: { connect: { id: staffId } },
+          },
+          include: {
+            staff: true,
+            customer: true,
+            tenant: true,
+          },
+        });
+      } catch (err) {
+        const target = getOverlapTarget(err); // staff | customer | null
+
+        if (target === "staff") {
+          throw badInput(
+            "The staff member already has an appointment at this time.",
+          );
+        }
+        if (target === "customer") {
+          throw badInput(
+            "The customer already has an appointment at this time.",
+          );
+        }
+
+        throw err;
+      }
 
       io.to(targetTenantId).emit("appointment_created", { id: newApp.id });
 
@@ -335,11 +357,30 @@ export const appointmentResolvers = {
           throw badInput("This time clashes with another appointment.");
       }
 
-      const updatedApp = await db.appointment.update({
-        where: { id },
-        data, // doğrulanmış, tipli veri
-        include: { staff: true, customer: true, tenant: true },
-      });
+      let updatedApp;
+
+      try {
+        updatedApp = await db.appointment.update({
+          where: { id },
+          data, // doğrulanmış, tipli veri
+          include: { staff: true, customer: true, tenant: true },
+        });
+      } catch (err) {
+        const target = getOverlapTarget(err); // staff | customer | null
+
+        if (target === "staff") {
+          throw badInput(
+            "The staff member already has an appointment at this time.",
+          );
+        }
+        if (target === "customer") {
+          throw badInput(
+            "The customer already has an appointment at this time.",
+          );
+        }
+
+        throw err;
+      }
 
       io.to(updatedApp.tenantId).emit("appointment_updated", {
         id: updatedApp.id,
@@ -391,11 +432,24 @@ export const appointmentResolvers = {
           );
       }
 
-      const updatedAppointment = await db.appointment.update({
-        where: { id },
-        data: { status },
-        include: { customer: true, staff: true },
-      });
+      let updatedAppointment;
+
+      try {
+        updatedAppointment = await db.appointment.update({
+          where: { id },
+          data: { status },
+          include: { customer: true, staff: true },
+        });
+      } catch (err) {
+        // İptal edilmiş randevu yeniden açılırken saat bu arada dolmuşsa kısıt reddeder
+        if (getOverlapTarget(err)) {
+          throw badInput(
+            "This time slot is no longer free, so the appointment can't be reopened.",
+          );
+        }
+
+        throw err;
+      }
 
       io.to(updatedAppointment.tenantId).emit("appointment_status_updated", {
         id: updatedAppointment.id,
