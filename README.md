@@ -4,16 +4,17 @@ A multi-tenant SaaS backend for clinic management: appointments, customers, prod
 
 Each clinic is a tenant. Clinics sign up on their own, share one database, and can only ever see their own data. Inside a clinic, what a user can see and do depends on their role.
 
-> **Status:** in active development. The current focus is security and tenant isolation. See [Roadmap](#roadmap).
+> **Status:** in active development. Tenant scoping, input validation and login rate limiting are in place; the current focus is tests, then Docker and deployment. See [Roadmap](#roadmap).
 
 ---
 
 ## Why this project is interesting
 
-- **Tenant isolation enforced on the server.** The tenant always comes from the authenticated user, never from the client. Every query and every real-time event is scoped to the caller's clinic.
-- **A role matrix enforced in one place.** Every resolver starts with a single `requireAuth` or `requireRole` line. The UI hides what a role can't use, but the server is the security boundary.
+- **Tenant isolation enforced in one place.** Resolvers don't write `tenantId` filters by hand. They get a database client that is locked to the caller's clinic (a Prisma Client Extension), so a new resolver can't forget the filter. The tenant always comes from the authenticated user, never from the client.
+- **A role matrix enforced on the server.** Every resolver starts with a single `requireAuth` or `requireRole` line. The UI hides what a role can't use, but the server is the security boundary.
+- **Validated input at the boundary.** Mutation inputs are checked with zod schemas before they reach the database.
 - **Real-time updates and record locking** with Socket.io, authenticated through the same gate as the GraphQL API.
-- **Audited and hardened.** I ran a line-by-line audit of my own codebase (72 findings, 6 critical) and have been fixing them in priority order: cross-tenant reads and writes, missing role checks, data leaks through real-time events, and error messages that revealed whether a record existed.
+- **Audited and hardened.** I ran a line-by-line audit of my own codebase (72 findings, 6 critical) and have been fixing them in priority order: cross-tenant reads and writes, missing role checks, data leaks through real-time events, error messages that revealed whether a record existed, brute-force sign-in attempts and unvalidated input.
 
 ---
 
@@ -22,7 +23,8 @@ Each clinic is a tenant. Clinics sign up on their own, share one database, and c
 | Layer | Technologies |
 | --- | --- |
 | Backend | Node.js, TypeScript, Express 5, GraphQL (Apollo Server), Prisma 7, PostgreSQL, Socket.io |
-| Auth | JWT, bcrypt |
+| Auth and security | JWT (HS256), bcrypt, rate-limiter-flexible |
+| Validation | zod |
 | Frontend | React 19, TypeScript, Vite, Apollo Client, Tailwind CSS |
 
 The focus of this project is the backend. The frontend's UI was generated with an AI tool (Gemini). I built the parts that connect it to the backend (GraphQL queries and mutations, Socket.io, authentication), using AI tools along the way, and later reviewed and fixed the client: shared error and loading states, one shared socket connection, centralized page permissions and session handling.
@@ -66,18 +68,22 @@ The focus of this project is the backend. The frontend's UI was generated with a
 
 ```text
 React client ── GraphQL (HTTP) ──┐
-       │                         ├── getUserFromToken ── Prisma ── PostgreSQL
-       └──── Socket.io ──────────┘   (one auth gate)
+       │                         ├── getUserFromToken ── tenant-scoped Prisma client ── PostgreSQL
+       └──── Socket.io ──────────┘   (one auth gate)      (locked to the user's clinic)
 ```
 
 - **One auth gate.** Both the GraphQL context and the Socket.io middleware call `getUserFromToken`. It verifies the token, loads the user from the database, and returns nothing for invalid tokens, deactivated staff and nurse accounts. A rule added there applies to both entry points at once.
 - **Identity from the database, not the token.** The token only carries the user's id. Role and tenant are read from the database on every request, so a role change or a deactivation takes effect immediately instead of when the token expires.
+- **A database client per request, locked to one clinic.** After authentication, the context builds `db`, a Prisma client with a tenant-scope extension. Every read, update, delete, count and aggregate on clinic data gets `tenantId` added to its `where`, after the caller's own filters, so a value sent by the client can't override it. If there's no signed-in user, `db` is `null`: the API fails closed instead of running an unscoped query.
 - **The server picks the socket room.** After authentication, the server joins the socket to the user's own clinic room. Clients can't choose a room.
 - **Typed errors.** Small helpers (`unauthenticated`, `forbidden`, `badInput`) set the GraphQL error code. The frontend reacts to the code: an authentication error ends the session, a permission error shows a message.
 
 ---
 
 ## Engineering decisions
+
+**Tenant scoping moved from every resolver to one extension.**
+At first, each resolver added `tenantId` to its own queries. That worked, but a single forgotten filter in a new resolver would quietly leak another clinic's data. The scoping now lives in one Prisma Client Extension, so isolation no longer depends on remembering a line in every query.
 
 **Same answer for "not found" and "not yours".**
 Records are looked up together with the caller's tenant. If nothing matches, the API returns the same `FORBIDDEN` message whether the record doesn't exist or belongs to another clinic, so ids from other clinics can't be probed.
@@ -87,6 +93,15 @@ Past appointments and sales must be kept. Deleting a customer sets `deletedAt`; 
 
 **Sales aren't editable.**
 A sale works like a receipt: a wrong sale is deleted (which restores the stock) and entered again. That keeps the stock logic in two simple, tested places instead of a multi-product update.
+
+**Stock can't go below zero, even with two sales at once.**
+A sale lowers the stock with one conditional update (`stock >= quantity`, then decrement), inside the same transaction as the sale. If two people sell the last item at the same moment, only one update matches; the other gets an "insufficient stock" error instead of a negative stock.
+
+**Sign-in attempts are rate limited.**
+Failed sign-ins are counted per email and IP (5 per 15 minutes) and per IP (50 per hour). A blocked user is told how many minutes to wait, and a successful sign-in resets the counter for that email.
+
+**Input is validated before it touches the database.**
+Each mutation passes its input through a zod schema (required fields, formats, positive prices and quantities). The first problem is returned as a `BAD_USER_INPUT` error with a readable message, and sign-up no longer returns raw database errors to the client.
 
 **Socket events carry only an id.**
 Events used to broadcast full records, including customer details, to everyone in the clinic. Now they only say "appointment X changed", and each client refetches through GraphQL, which already applies the role rules. Authorization lives in one place; the cost is one extra request per event.
@@ -152,16 +167,22 @@ The app runs at `http://localhost:5173`. Sign up to create a clinic; you'll be i
 - API and socket URLs, the backend port and the allowed CORS origins are hard-coded for local development.
 - Record locking is enforced in the UI only; the server doesn't yet reject a save on a locked record.
 - Staff contact details are readable by every role through the staff list query (the secretary needs the doctor list when booking).
-- Input validation is hand-written in the resolvers; there's no schema validation library yet.
+- Staff and profile updates don't use zod schemas yet.
+- The platform admin currently uses an unscoped database client; it will get its own limited set of queries.
+- Sign-in rate limits are kept in memory, so they reset when the server restarts and aren't shared between instances.
 - No automated tests yet.
 
 ---
 
 ## Roadmap
 
-- [ ] Tenant scoping in one place with a Prisma Client Extension, replacing hand-written `tenantId` filters
-- [ ] Remove the remaining `any` types from the GraphQL context
-- [ ] Input validation with zod; atomic stock updates
+- [x] Tenant scoping in one place with a Prisma Client Extension, replacing hand-written `tenantId` filters
+- [x] Remove the `any` types from the GraphQL context
+- [x] Input validation with zod (customers, products, sales, appointments, sign-up); atomic stock updates
+- [x] Rate limiting for sign-in
+- [ ] zod for staff and profile updates; remove the remaining `any` types in resolver arguments
+- [ ] Require the current password to change email or password
+- [ ] Server-side record locking
 - [ ] Tenant isolation and critical-flow tests
 - [ ] 14-day trial and suspension for clinics
 - [ ] Docker, CI (lint, test, build) and deployment
