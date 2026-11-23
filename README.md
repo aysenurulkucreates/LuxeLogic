@@ -12,6 +12,7 @@ Each clinic is a tenant. Clinics sign up on their own, share one database, and c
 
 - **Tenant isolation enforced in one place.** Resolvers don't write `tenantId` filters by hand. They get a database client that is locked to the caller's clinic (a Prisma Client Extension), so a new resolver can't forget the filter. The tenant always comes from the authenticated user, never from the client.
 - **A role matrix enforced on the server.** Every resolver starts with a single `requireAuth` or `requireRole` line. The UI hides what a role can't use, but the server is the security boundary.
+- **No double booking, even under concurrency.** PostgreSQL exclusion constraints reject overlapping appointments for the same doctor or customer, so two requests at the same moment can't both get the same slot.
 - **Validated input at the boundary.** Mutation inputs are checked with zod schemas before they reach the database.
 - **Real-time updates and record locking** with Socket.io, authenticated through the same gate as the GraphQL API.
 - **Audited and hardened.** I ran a line-by-line audit of my own codebase (72 findings, 6 critical) and have been fixing them in priority order: cross-tenant reads and writes, missing role checks, data leaks through real-time events, error messages that revealed whether a record existed, brute-force sign-in attempts and unvalidated input.
@@ -34,7 +35,7 @@ The focus of this project is the backend. The frontend's UI was generated with a
 ## Features
 
 - **Clinics (tenants):** self-serve sign-up; the person who signs up becomes the clinic admin.
-- **Appointments:** create, edit, change status; time-conflict checks for both the staff member and the customer.
+- **Appointments:** create, edit, change status; no double booking for the staff member or the customer, enforced by the database.
 - **Customers:** search, add, edit, soft delete.
 - **Products and sales:** stock is lowered on a sale and restored when a sale is deleted (refund), inside one transaction.
 - **Staff:** the admin adds staff and gets a random temporary password to share; removed staff are deactivated, not deleted.
@@ -93,6 +94,17 @@ Past appointments and sales must be kept. Deleting a customer sets `deletedAt`; 
 
 **Sales aren't editable.**
 A sale works like a receipt: a wrong sale is deleted (which restores the stock) and entered again. That keeps the stock logic in two simple, tested places instead of a multi-product update.
+
+**Double booking is blocked by the database, not only by the code.**
+Before saving, the resolver checks for an overlapping appointment. But the check and the insert are two separate steps: two requests at the same moment can both pass the check and both insert (a check-then-act race). A transaction doesn't fix it, because in PostgreSQL's default isolation level neither request sees the other's uncommitted insert, and there's no existing row to lock. Two exclusion constraints now enforce the rule in PostgreSQL itself: the same doctor, or the same customer, can't have two active appointments whose time ranges overlap. Cancelled appointments don't count, back-to-back appointments are allowed, and reopening a cancelled appointment is rejected if its slot has been taken. The application check stays, because it gives a clear message in the normal case; if the constraint fires (`23P01`), that error is turned into the same readable message.
+
+```sql
+ALTER TABLE "Appointment"
+  ADD CONSTRAINT appointment_staff_no_overlap
+  EXCLUDE USING gist ("staffId" WITH =, tsrange("startTime", "endTime") WITH &&)
+  WHERE (status <> 'CANCELLED');
+-- the same for "customerId"
+```
 
 **Stock can't go below zero, even with two sales at once.**
 A sale lowers the stock with one conditional update (`stock >= quantity`, then decrement), inside the same transaction as the sale. If two people sell the last item at the same moment, only one update matches; the other gets an "insufficient stock" error instead of a negative stock.
@@ -180,6 +192,7 @@ The app runs at `http://localhost:5173`. Sign up to create a clinic; you'll be i
 - [x] Remove the `any` types from the GraphQL context
 - [x] Input validation with zod (customers, products, sales, appointments, sign-up); atomic stock updates
 - [x] Rate limiting for sign-in
+- [x] Database-level protection against double booking (exclusion constraints)
 - [ ] zod for staff and profile updates; remove the remaining `any` types in resolver arguments
 - [ ] Require the current password to change email or password
 - [ ] Server-side record locking
