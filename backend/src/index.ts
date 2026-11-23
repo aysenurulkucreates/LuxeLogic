@@ -122,7 +122,7 @@ io.on("connection", (socket) => {
   });
 
   // bağlantı koptu, elinde kilitli kayot varsa otomatik aç
-  socket.on("disconnected", () => {
+  socket.on("disconnect", () => {
     console.log("Socket disconnected", socket.id);
 
     const lock = lockedRecords.get(socket.id);
@@ -131,7 +131,7 @@ io.on("connection", (socket) => {
         .to(lock.tenantId)
         .emit("record_unlocked", { recordId: lock.recordId });
       lockedRecords.delete(socket.id);
-      console.log("Auto-unlocked record after disconnected:", lock.recordId);
+      console.log("Auto-unlocked record after disconnect:", lock.recordId);
     }
   });
 });

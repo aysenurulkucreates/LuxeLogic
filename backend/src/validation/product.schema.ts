@@ -5,12 +5,12 @@ export const createProductSchema = z.object({
     .string()
     .trim()
     .min(1, "Product name is required.")
-    .max(100, "Product name s too long"),
+    .max(100, "Product name is too long."),
   category: z
     .string()
     .trim()
     .min(1, "Category is required.")
-    .max(50, "Category is too long"),
+    .max(50, "Category is too long."),
   price: z
     .number()
     .positive("Price must be greater than 0.")
@@ -18,8 +18,8 @@ export const createProductSchema = z.object({
   stock: z
     .number()
     .int("Stock must be a whole number.")
-    .nonnegative("Stock can't be a negative.")
-    .max(1_000_000, "Stock is too large"),
+    .nonnegative("Stock can't be negative.")
+    .max(1_000_000, "Stock is too large."),
 });
 
 export const updateProductSchema = createProductSchema
