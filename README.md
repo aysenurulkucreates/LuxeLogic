@@ -179,7 +179,7 @@ The app runs at `http://localhost:5173`. Sign up to create a clinic; you'll be i
 - API and socket URLs, the backend port and the allowed CORS origins are hard-coded for local development.
 - Record locking is enforced in the UI only; the server doesn't yet reject a save on a locked record.
 - Staff contact details are readable by every role through the staff list query (the secretary needs the doctor list when booking).
-- Staff and profile updates don't use zod schemas yet.
+- Staff updates don't use a zod schema yet.
 - The platform admin currently uses an unscoped database client; it will get its own limited set of queries.
 - Sign-in rate limits are kept in memory, so they reset when the server restarts and aren't shared between instances.
 - No automated tests yet.
@@ -193,8 +193,8 @@ The app runs at `http://localhost:5173`. Sign up to create a clinic; you'll be i
 - [x] Input validation with zod (customers, products, sales, appointments, sign-up); atomic stock updates
 - [x] Rate limiting for sign-in
 - [x] Database-level protection against double booking (exclusion constraints)
-- [ ] zod for staff and profile updates; remove the remaining `any` types in resolver arguments
-- [ ] Require the current password to change email or password
+- [x] Profile updates: zod validation, and the current password is required to change the email or password
+- [ ] zod for staff updates; remove the remaining `any` types in resolver arguments
 - [ ] Server-side record locking
 - [ ] Tenant isolation and critical-flow tests
 - [ ] 14-day trial and suspension for clinics
