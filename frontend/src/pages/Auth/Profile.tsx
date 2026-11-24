@@ -3,6 +3,7 @@ import { User, Mail, Shield, Building, Camera } from "lucide-react";
 import { GET_ME } from "../../graphql/queries/auth";
 import ErrorState from "../../components/ui/ErrorState";
 import LoadingState from "../../components/ui/LoadingState";
+import ProfileSettingsForm from "./ProfileSettingsForm";
 
 const ProfilePage = () => {
   const { data, loading, error, refetch } = useQuery(GET_ME);
@@ -107,6 +108,15 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {me && (
+        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-6">
+            Account Settings
+          </h2>
+          <ProfileSettingsForm currentEmail={me.email} />
+        </div>
+      )}
     </div>
   );
 };

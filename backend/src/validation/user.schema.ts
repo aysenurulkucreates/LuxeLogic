@@ -24,3 +24,27 @@ export const signupSchema = z.object({
       "Clinic URL can only contain lowercase letters, numbers and hyphens.",
     ),
 });
+
+// the profile form may send '' (or null) for a field the user didn't change.
+const emptyToUndefined = (value: unknown) =>
+  value === "" || value === null ? undefined : value;
+
+export const updateUserSchema = z
+  .object({
+    email: z.preprocess(
+      emptyToUndefined,
+      z.string().trim().email("Invalid email address.").optional(),
+    ),
+    password: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .min(8, "Password must be at least 8 characters")
+        .max(72, "Password is too long.")
+        .optional(),
+    ),
+    currentPassword: z.string().min(1, "Current password is required."),
+  })
+  .refine((data) => data.email !== undefined || data.password !== undefined, {
+    message: "No data provided for update.",
+  });
