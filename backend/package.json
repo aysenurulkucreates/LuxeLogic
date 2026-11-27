@@ -5,7 +5,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --env-file=.env.test node_modules/vitest/vitest.mjs run",
+    "test:migrate": "node --env-file=.env.test node_modules/prisma/build/index.js migrate deploy",
     "dev": "node --env-file=.env node_modules/tsx/dist/cli.mjs watch src/index.ts",
     "start": "node --env-file=.env node_modules/.bin/tsx src/index.ts",
     "generate": "prisma generate"
